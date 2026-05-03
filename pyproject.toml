@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Framework-agnostic middleware SDK for AI agent tools — caching, semantic deduplication, coalescing and observability in one decorator."
 readme = "README.md"
 license = { file = "LICENSE" }
-authors = [{ name = "ToolOps AI", email = "contact@toolops.ai" }]
+authors = [{ name = "Hedi Manai", email = "hedi.manai.pro@gmail.com" }]
 keywords = ["ai", "agents", "cache", "middleware", "langchain", "langgraph", "crewai", "llamaindex", "mcp"]
 classifiers = [
     "Development Status :: 3 - Alpha",

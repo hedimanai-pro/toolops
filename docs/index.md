@@ -154,4 +154,4 @@ ToolOps is an open-source project by **Hedi MANAI**.
 
 ## License
 
-Apache License 2.0 — Copyright 2026 ToolOps AI.
+Apache License 2.0 — Copyright 2026 Hedi Manai.

@@ -37,7 +37,7 @@ try:
 except PackageNotFoundError:
     __version__ = "0.0.0-dev"
 
-__author__ = "ToolOps AI"
+__author__ = "Hedi Manai"
 __license__ = "Apache-2.0"
 
 __all__ = [
