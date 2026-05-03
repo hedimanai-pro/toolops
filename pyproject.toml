@@ -1,0 +1,77 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toolops"
+version = "0.1.0"
+description = "Framework-agnostic middleware SDK for AI agent tools — caching, semantic deduplication, coalescing and observability in one decorator."
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "ToolOps AI", email = "contact@toolops.ai" }]
+keywords = ["ai", "agents", "cache", "middleware", "langchain", "langgraph", "crewai", "llamaindex", "mcp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+requires-python = ">=3.9"
+dependencies = []
+
+[project.optional-dependencies]
+postgres = ["asyncpg>=0.27.0"]
+semantic = ["sentence-transformers>=2.2.0", "numpy>=1.24.0"]
+openai = ["openai>=1.0.0"]
+otel = ["opentelemetry-api>=1.24.0"]
+all = [
+    "asyncpg>=0.27.0",
+    "sentence-transformers>=2.2.0",
+    "numpy>=1.24.0",
+    "openai>=1.0.0",
+    "opentelemetry-api>=1.24.0",
+]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+
+[project.urls]
+Homepage = "https://toolops-ai.gitlab.io/toolops"
+Repository = "https://gitlab.com/toolops-ai/toolops"
+Changelog = "https://gitlab.com/toolops-ai/toolops/-/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://gitlab.com/toolops-ai/toolops/-/issues"
+
+[project.scripts]
+toolops = "toolops.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["toolops*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ["py39", "py310", "py311", "py312"]
+
+[tool.ruff]
+line-length = 88
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.9"
+strict = true
+ignore_missing_imports = true
