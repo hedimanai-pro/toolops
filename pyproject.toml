@@ -46,10 +46,10 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://toolops-ai.gitlab.io/toolops"
-Repository = "https://gitlab.com/toolops-ai/toolops"
-Changelog = "https://gitlab.com/toolops-ai/toolops/-/blob/main/CHANGELOG.md"
-"Bug Tracker" = "https://gitlab.com/toolops-ai/toolops/-/issues"
+Homepage = "https://github.com/hedimanai-pro/toolops"
+Repository = "https://github.com/hedimanai-pro/toolops"
+Changelog = "https://github.com/hedimanai-pro/toolops/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/hedimanai-pro/toolops/issues"
 
 [project.scripts]
 toolops = "toolops.cli:main"

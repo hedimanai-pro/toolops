@@ -146,7 +146,7 @@ definition = MCPIntegration.to_mcp_definition(get_weather)
 
 ToolOps is an open-source project by **Hedi MANAI**.
 
-- **Website** [hedimanai-pro.github.io](https://hedimanai-pro.github.io/)
+- **Website** [hedimanai.vercel.app](https://hedimanai.vercel.app/)
 - **LinkedIn** [Hedi Manai Profile](https://www.linkedin.com/in/hedimanai/)
 - **GitHub** [hedimanai-pro/toolops](https://github.com/hedimanai-pro/toolops)
 

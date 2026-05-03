@@ -12,7 +12,7 @@ Versioning: [Semantic Versioning](https://semver.org/)
 ### Added
 - **MCP Integration**: Helper to convert ToolOps-decorated tools to Model Context Protocol definitions.
 - **Enhanced Sync Support**: `sync_wrapper` now handles existing event loops via `asyncio.run_coroutine_threadsafe`.
-- **Personal Branding**: Integrated [Hedi MANAI](https://hedimanai-pro.github.io/) professional profiles and branding.
+- **Personal Branding**: Integrated [Hedi MANAI](https://hedimanai.vercel.app/) professional profiles and branding.
 - **CLI & Operations**: Added a full-featured CLI (`toolops`) for system health checks (`doctor`), cache statistics (`stats`), metrics (`metrics`), and management (`clear`, `inspect-key`).
 
 ### Removed

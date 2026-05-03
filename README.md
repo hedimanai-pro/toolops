@@ -12,7 +12,7 @@
 
 **Build Production-Ready Agents. Stop Writing Infrastructure Boilerplate.**
 
-[Website](https://hedimanai-pro.github.io/) · [Documentation](https://hedimanai-pro.github.io/toolops) · [Quickstart](#quickstart) · [Changelog](CHANGELOG.md)
+[Website](https://hedimanai.vercel.app/) · [Documentation](https://hedimanai.vercel.app/projects/toolops.html) · [Quickstart](#quickstart) · [Changelog](CHANGELOG.md)
 
 </div>
 
@@ -159,7 +159,7 @@ ToolOps is an open-source project by **Hedi MANAI**. I am building the future of
 
 - **LinkedIn** [Connect with me](https://www.linkedin.com/in/hedimanai/)
 - **GitHub** [Follow my work](https://github.com/hedimanai-pro)
-- **Website** [Hedi Manai Portfolio](https://hedimanai-pro.github.io/)
+- **Website** [Hedi Manai Portfolio](https://hedimanai.vercel.app/)
 - **X (Twitter)** [Follow @hedi_manaii](https://x.com/hedi_manaii)
 - **Discord** `@hedimanai`
 - **Reddit** [Profile](https://www.reddit.com/user/Ornery_Charge_1033/)
