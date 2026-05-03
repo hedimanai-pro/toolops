@@ -1,16 +1,14 @@
-"""
-Name: requirements.txt
+# Name: requirements.txt
 
-Description: ToolOps SDK dependencies list
+# Description: ToolOps SDK dependencies list
 
-Last_updated: 2026-05-03
+# Last_updated: 2026-05-03
 
-Updated_by: Hedi Manai
-Github: https://github.com/hedimanai-pro
-LinkedIn: https://www.linkedin.com/in/hedimanai
+# Updated_by: Hedi Manai
+# Github: https://github.com/hedimanai-pro
+# LinkedIn: https://www.linkedin.com/in/hedimanai
 
-Note: This project is open source for knowledge sharing
-"""
+# Note: This project is open source for knowledge sharing
 
 
 # ToolOps SDK Dependencies
