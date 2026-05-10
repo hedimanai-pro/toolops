@@ -7,7 +7,10 @@ Versioning: [Semantic Versioning](https://semver.org/)
 
 ---
 
-## [Unreleased]
+## [0.1.1] — 2026-05-10
+
+### Fixed
+- **README**: Fixed image display on PyPI by using absolute GitHub URLs.
 
 ### Added
 - **MCP Integration**: Helper to convert ToolOps-decorated tools to Model Context Protocol definitions.
