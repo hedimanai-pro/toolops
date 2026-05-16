@@ -1,0 +1,60 @@
+# Name: docker-compose.yml
+#
+# Description: Development environment with ToolOps + PostgreSQL.
+#
+#              Usage:
+#                docker-compose up -d    # Start services
+#                docker-compose down     # Stop services
+#                docker-compose exec toolops make test
+#
+# Last_updated: 2026-05-16
+#
+# Updated_by: Hedi Manai
+# Github: https://github.com/hedimanai-pro
+# LinkedIn: https://www.linkedin.com/in/hedimanai
+#
+# Note: This project is open source for knowledge sharing
+
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: toolops-postgres
+    environment:
+      POSTGRES_USER: toolops
+      POSTGRES_PASSWORD: toolops
+      POSTGRES_DB: toolops_test
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U toolops -d toolops_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  toolops:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: toolops-dev
+    environment:
+      TOOLOPS_TEST_POSTGRES_DSN: postgresql://toolops:toolops@postgres:5432/toolops_test
+      TOOLOPS_APP: 
+    volumes:
+      - .:/workspace
+      - /workspace/.venv
+      - /workspace/__pycache__
+      - /workspace/toolops/__pycache__
+      - /workspace/tests/__pycache__
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["tail", "-f", "/dev/null"]  # Keep container running
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres_data:
