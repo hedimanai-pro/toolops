@@ -62,6 +62,7 @@ def _render_labels(labels: tuple[tuple[str, str], ...]) -> str:
 
     if not labels:
         return ""
+
     parts = [f'{name}="{value}"' for name, value in labels]
     return "{" + ",".join(parts) + "}"
 
@@ -192,9 +193,8 @@ class PrometheusMetrics:
                 for bucket, count in sorted(snapshot.buckets.items()):
                     cumulative += count
                     bucket_labels = labels + (("le", str(bucket)),)
-                    lines.append(
-                        f"{name}_bucket{_render_labels(bucket_labels)} {cumulative}"
-                    )
+                    lines.append(f"{name}_bucket{_render_labels(bucket_labels)} {cumulative}")
+
                 inf_labels = labels + (("le", "+Inf"),)
                 lines.append(f"{name}_bucket{_render_labels(inf_labels)} {snapshot.count}")
                 lines.append(f"{name}_count{_render_labels(labels)} {snapshot.count}")
@@ -224,10 +224,11 @@ class OpenTelemetryBridge:
         if tracer is not None:
             self._tracer = tracer
             return
+
         try:
             from opentelemetry import trace  # type: ignore[import]
-
             self._tracer = trace.get_tracer("toolops")
+
         except ImportError:
             self._tracer = None
 
@@ -280,6 +281,7 @@ class _SpanContext:
         if self._span is not None:
             for name, value in self._attributes.items():
                 self._span.set_attribute(name, value)
+
         return self._span
 
 
