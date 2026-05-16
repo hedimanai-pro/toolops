@@ -1,7 +1,7 @@
 # Name: release.yml
 #
-# Description: Release pipeline — builds and publishes to PyPI on tag push.
-#              Uses pyproject.toml only (setup.py removed in v0.2.0).
+# Description: Release pipeline — builds and tests on tag push.
+#              Manual PyPI upload required (v0.2.0 safety measure).
 #
 # Last_updated: 2026-05-16
 #
@@ -67,22 +67,3 @@ jobs:
         with:
           name: dist
           path: dist/
-
-  publish-pypi:
-    name: Publish to PyPI
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: pypi
-      url: https://pypi.org/project/toolops/
-    permissions:
-      id-token: write
-    steps:
-      - name: Download build artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1

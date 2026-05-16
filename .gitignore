@@ -16,6 +16,7 @@ build/
 .coverage
 htmlcov/
 .mypy_cache/
+.tmp_test_cli/
 
 # Editors
 .vscode/
