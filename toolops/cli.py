@@ -160,7 +160,7 @@ def _resolve_inspect_key(args: argparse.Namespace) -> str:
     """
 
     if args.key:
-        return args.key
+        return str(args.key)
 
     params = json.loads(args.params_json)
     key_params = args.key_params.split(",") if args.key_params else None

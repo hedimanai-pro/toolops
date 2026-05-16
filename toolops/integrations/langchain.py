@@ -57,10 +57,10 @@ def as_langchain_tool(
     """
 
     try:
-        from langchain_core.tools import StructuredTool  # type: ignore[import]
+        from langchain_core.tools import StructuredTool
     except ImportError:
         try:
-            from langchain.tools import StructuredTool  # type: ignore[import]
+            from langchain.tools import StructuredTool
         except ImportError as exc:
             raise ImportError(
                 "LangChain integration requires langchain or langchain-core."

@@ -35,7 +35,7 @@ def as_crewai_tool(
     """
 
     try:
-        from crewai import Tool as CrewTool  # type: ignore[import]
+        from crewai import Tool as CrewTool
     except ImportError as exc:
         raise ImportError("CrewAI integration requires crewai.") from exc
 

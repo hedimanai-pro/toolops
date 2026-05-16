@@ -15,14 +15,14 @@ Note: This project is open source for knowledge sharing
 from __future__ import annotations
 
 import inspect
-from typing import Any, Callable, Dict
+from typing import Any, Callable
 
 
 class MCPIntegration:
     """Helper to integrate ToolOps tools with MCP."""
 
     @staticmethod
-    def to_mcp_definition(func: Callable[..., Any]) -> Dict[str, Any]:
+    def to_mcp_definition(func: Callable[..., Any]) -> dict[str, Any]:
         """
         Convert a tool function into an MCP-compatible definition.
 

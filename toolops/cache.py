@@ -15,6 +15,7 @@ Note: This project is open source for knowledge sharing
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import hashlib
 import json
 import time
@@ -24,7 +25,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from toolops.logger import logger
 from toolops.observability import metrics
@@ -270,7 +271,7 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
     """
 
     try:
-        import numpy as np  # type: ignore[import]
+        import numpy as np
 
         va, vb = np.array(a, dtype=float), np.array(b, dtype=float)
         denom = float(np.linalg.norm(va) * np.linalg.norm(vb))
@@ -667,7 +668,7 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
         """Establish database connection pool."""
 
         try:
-            import asyncpg  # type: ignore[import]
+            import asyncpg
 
             async def _init_conn(conn: Any) -> None:
                 await conn.set_type_codec(
@@ -849,10 +850,8 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
                     [tag],
                 )
                 # asyncpg returns a status string like "DELETE 3"
-                try:
+                with contextlib.suppress(IndexError, ValueError):
                     total += int(result.split()[1]) if len(result.split()) > 1 else 0
-                except (IndexError, ValueError):
-                    pass
 
         return total
 
@@ -1140,7 +1139,7 @@ class SentenceTransformerEmbedder:
 
         try:
             from sentence_transformers import (
-                SentenceTransformer,  # type: ignore[import]
+                SentenceTransformer,
             )
 
             self._model = SentenceTransformer(model)
@@ -1161,7 +1160,7 @@ class SentenceTransformerEmbedder:
             Vector embedding.
         """
 
-        return self._model.encode(text, convert_to_numpy=True).tolist()
+        return cast(list[float], self._model.encode(text, convert_to_numpy=True).tolist())
 
 
 class OpenAIEmbedder:
@@ -1179,7 +1178,7 @@ class OpenAIEmbedder:
         """
 
         try:
-            from openai import AsyncOpenAI  # type: ignore[import]
+            from openai import AsyncOpenAI
 
             self._client = AsyncOpenAI(api_key=api_key)
             self._model = model
@@ -1202,7 +1201,7 @@ class OpenAIEmbedder:
         """
 
         response = await self._client.embeddings.create(input=text, model=self._model)
-        return response.data[0].embedding
+        return cast(list[float], response.data[0].embedding)
 
 
 class SemanticCache(CacheBackend, TaggedCacheMixin):
@@ -1652,7 +1651,7 @@ class CacheManager:
 
         for backend in self._backends.values():
             if hasattr(backend, "connect"):
-                await backend.connect()  # type: ignore[attr-defined]
+                await backend.connect()
 
     async def stats(self) -> dict[str, Any]:
         """

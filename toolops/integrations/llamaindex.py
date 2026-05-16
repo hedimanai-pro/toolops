@@ -35,10 +35,10 @@ def as_llamaindex_tool(
     """
 
     try:
-        from llama_index.core.tools import FunctionTool  # type: ignore[import]
+        from llama_index.core.tools import FunctionTool
     except ImportError:
         try:
-            from llama_index.tools import FunctionTool  # type: ignore[import]
+            from llama_index.tools import FunctionTool
         except ImportError as exc:
             raise ImportError("LlamaIndex integration requires llama-index.") from exc
 

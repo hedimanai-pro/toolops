@@ -1,4 +1,3 @@
-
 import pytest
 
 from toolops.middlewares import (
@@ -120,7 +119,6 @@ async def test_cache_middleware_stale_if_error():
     cache_manager.register("m2", cache)
 
     # Pre-seed stale entry
-    entry = CacheEntry.create("k1", "stale_val", ttl=-10, stale_ttl=60)
     await cache.set("k1", "stale_val", ttl=-10, stale_ttl=60)
 
     ctx = ToolContext(

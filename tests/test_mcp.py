@@ -12,7 +12,6 @@ LinkedIn: https://www.linkedin.com/in/hedimanai
 Note: This project is open source for knowledge sharing
 """
 
-
 from toolops import readonly
 from toolops.integrations.mcp import MCPIntegration
 

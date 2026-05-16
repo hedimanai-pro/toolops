@@ -238,7 +238,7 @@ class CacheMiddleware(Middleware):
             stale=False,
         )
         metrics.record_cache_hit(
-            tool=ctx.tool_name, cache=ctx.cache_backend, hit_kind=hit_kind
+            tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind=hit_kind
         )
         metrics.record_tool_result(
             tool=ctx.tool_name,

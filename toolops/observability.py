@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable, cast
 
 DEFAULT_BUCKETS = (
     0.005,
@@ -204,26 +204,30 @@ class PrometheusMetrics:
             for labels, value in sorted(series.items()):
                 lines.append(f"{name}{_render_labels(labels)} {value}")
 
-        for name, series in sorted(self._histograms.items()):
-            metric_type, description = self._metadata[name]
-            lines.append(f"# HELP {name} {description}")
-            lines.append(f"# TYPE {name} {metric_type}")
-            for labels, snapshot in sorted(series.items()):
-                assert snapshot.buckets is not None
+        for h_name, h_series in sorted(self._histograms.items()):
+            metric_type, description = self._metadata[h_name]
+            lines.append(f"# HELP {h_name} {description}")
+            lines.append(f"# TYPE {h_name} {metric_type}")
+            for h_labels, h_snapshot in sorted(h_series.items()):
+                assert h_snapshot.buckets is not None
                 cumulative = 0
-                for bucket, count in sorted(snapshot.buckets.items()):
+                for bucket, count in sorted(h_snapshot.buckets.items()):
                     cumulative += count
-                    bucket_labels = labels + (("le", str(bucket)),)
+                    bucket_labels = h_labels + (("le", str(bucket)),)
                     lines.append(
-                        f"{name}_bucket{_render_labels(bucket_labels)} {cumulative}"
+                        f"{h_name}_bucket{_render_labels(bucket_labels)} {cumulative}"
                     )
 
-                inf_labels = labels + (("le", "+Inf"),)
+                inf_labels = h_labels + (("le", "+Inf"),)
                 lines.append(
-                    f"{name}_bucket{_render_labels(inf_labels)} {snapshot.count}"
+                    f"{h_name}_bucket{_render_labels(inf_labels)} {h_snapshot.count}"
                 )
-                lines.append(f"{name}_count{_render_labels(labels)} {snapshot.count}")
-                lines.append(f"{name}_sum{_render_labels(labels)} {snapshot.total}")
+                lines.append(
+                    f"{h_name}_count{_render_labels(h_labels)} {h_snapshot.count}"
+                )
+                lines.append(
+                    f"{h_name}_sum{_render_labels(h_labels)} {h_snapshot.total}"
+                )
 
         return "\n".join(lines) + ("\n" if lines else "")
 
@@ -249,7 +253,7 @@ class OpenTelemetryBridge:
             return
 
         try:
-            from opentelemetry import trace  # type: ignore[import]
+            from opentelemetry import trace
 
             self._tracer = trace.get_tracer("toolops")
 
@@ -318,7 +322,8 @@ class _SpanContext:
             Boolean indicating if exception was handled.
         """
 
-        return self._context.__exit__(exc_type, exc, tb)
+        from typing import cast
+        return cast(bool, self._context.__exit__(exc_type, exc, tb))
 
 
 class ToolOpsMetrics:
