@@ -27,6 +27,7 @@ from toolops.observability import metrics
 from toolops.coalescer import RequestCoalescer
 from toolops.cache import CacheEntry, cache_manager
 from toolops.resilience import CircuitBreaker, CircuitOpenError
+from toolops.middlewares import ToolContext, build_executor
 
 
 _coalescer = RequestCoalescer()
