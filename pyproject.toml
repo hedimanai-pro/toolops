@@ -1,15 +1,35 @@
+# Name: pyproject.toml
+#
+# Description: ToolOps package configuration — PEP 621 compliant.
+#              Unified build system. setup.py removed in v0.2.0.
+#
+# Last_updated: 2026-05-16
+#
+# Updated_by: Hedi Manai
+# Github: https://github.com/hedimanai-pro
+# LinkedIn: https://www.linkedin.com/in/hedimanai
+#
+# Note: This project is open source for knowledge sharing
+
 [build-system]
-requires = ["setuptools>=68.0", "wheel"]
+requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolops"
-version = "0.1.1"
-description = "Framework-agnostic middleware SDK for AI agent tools — caching, semantic deduplication, coalescing and observability in one decorator."
+version = "0.2.0"
+description = "The Industrial-Grade Resilience & Efficiency Layer for AI Agent Tools"
 readme = "README.md"
-license = { file = "LICENSE" }
-authors = [{ name = "Hedi Manai", email = "hedi.manai.pro@gmail.com" }]
-keywords = ["ai", "agents", "cache", "middleware", "langchain", "langgraph", "crewai", "llamaindex", "mcp"]
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Hedi Manai", email = "hedi.manai.pro@gmail.com"},
+]
+keywords = [
+    "ai", "agents", "cache", "resilience", "circuit-breaker",
+    "retry", "observability", "middleware", "llm", "tools",
+    "langchain", "crewai", "mcp", "semantic-cache",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -20,58 +40,111 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: System :: Distributed Computing",
+    "Typing :: Typed",
 ]
-requires-python = ">=3.9"
+
 dependencies = []
 
 [project.optional-dependencies]
 postgres = ["asyncpg>=0.27.0"]
 semantic = ["sentence-transformers>=2.2.0", "numpy>=1.24.0"]
 openai = ["openai>=1.0.0"]
-otel = ["opentelemetry-api>=1.24.0"]
+otel = ["opentelemetry-api>=1.24.0", "prometheus-client>=0.17.0"]
 all = [
     "asyncpg>=0.27.0",
     "sentence-transformers>=2.2.0",
     "numpy>=1.24.0",
     "openai>=1.0.0",
     "opentelemetry-api>=1.24.0",
+    "prometheus-client>=0.17.0",
 ]
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
     "mypy>=1.5.0",
 ]
 
-[project.urls]
-Homepage = "https://github.com/hedimanai-pro/toolops"
-Repository = "https://github.com/hedimanai-pro/toolops"
-Changelog = "https://github.com/hedimanai-pro/toolops/blob/main/CHANGELOG.md"
-"Bug Tracker" = "https://github.com/hedimanai-pro/toolops/issues"
-
 [project.scripts]
 toolops = "toolops.cli:main"
+
+[project.urls]
+Homepage = "https://hedimanai.vercel.app/projects/toolops.html"
+Documentation = "https://hedimanai.vercel.app/projects/toolops.html"
+Repository = "https://github.com/hedimanai-pro/toolops"
+Issues = "https://github.com/hedimanai-pro/toolops/issues"
+Changelog = "https://github.com/hedimanai-pro/toolops/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["toolops*"]
 
-[tool.pytest.ini_options]
-asyncio_mode = "auto"
-testpaths = ["tests"]
-
 [tool.black]
 line-length = 88
 target-version = ["py39", "py310", "py311", "py312"]
+include = 'toolops/.*\.py$|tests/.*\.py$'
 
 [tool.ruff]
 line-length = 88
-select = ["E", "F", "I", "N", "W", "UP"]
-ignore = ["E501"]
+target-version = "py39"
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = ["E501"]  # Line too long — handled by Black
+
+[tool.ruff.isort]
+known-first-party = ["toolops"]
 
 [tool.mypy]
 python_version = "3.9"
 strict = true
+warn_return_any = true
+warn_unused_ignores = true
+show_error_codes = true
+
+[[tool.mypy.overrides]]
+module = [
+    "asyncpg.*",
+    "sentence_transformers.*",
+    "openai.*",
+    "opentelemetry.*",
+    "prometheus_client.*",
+    "llama_index.*",
+    "crewai.*",
+    "langchain.*",
+    "langchain_core.*",
+]
 ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["toolops"]
+omit = [
+    "toolops/integrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+]
+fail_under = 80
