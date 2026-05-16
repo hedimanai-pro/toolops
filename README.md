@@ -1,5 +1,12 @@
 <div align="center">
 
+[🇬🇧 English](README.md) | [🇫🇷 Français](readme/README.fr.md) | [🇨🇳 中文](readme/README.zh.md) | [🇯🇵 日本語](readme/README.ja.md) | [🇪🇸 Español](readme/README.es.md) | [🇩🇪 Deutsch](readme/README.de.md) | [🇵🇹 Português](readme/README.pt.md) | [🇰🇷 한국어](readme/README.ko.md) | [🇷🇺 Русский](readme/README.ru.md) | [🇮🇳 हिन्दी](readme/README.hi.md)
+
+</div>
+<br/>
+
+<div align="center">
+
 <img src="https://raw.githubusercontent.com/hedimanai-pro/toolops/main/docs/assets/logo.png" width="180" alt="ToolOps Logo">
 
 # ToolOps
