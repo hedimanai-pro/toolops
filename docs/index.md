@@ -24,6 +24,18 @@ Every production AI agent eventually faces the same problems:
 
 ---
 
+## v0.2.0 Highlights (Security & Architecture)
+
+ToolOps v0.2.0 brings industrial-grade stability and security to the core:
+- **Middleware Pipeline**: Replaced monolithic decorators with a modular, composable pipeline (`LoggingMiddleware`, `CacheMiddleware`, `CircuitBreakerMiddleware`, etc.).
+- **Security Hardening**:
+  - All cache keys are now **SHA-256 hashed** to prevent data leakage.
+  - Automatic masking of sensitive keywords (e.g., `token`, `password`) in structured logs.
+  - New `sensitive_params` parameter in all decorators to explicitly exclude fields from cache keys.
+- **Docker Environment**: Quick local setup via `docker-compose up -d` with a pre-configured PostgreSQL instance.
+
+---
+
 ## Installation
 
 ```bash
@@ -63,8 +75,8 @@ cache_manager.register("memory", MemoryCache(), is_default=True)
 
 #### `@readonly(...)` — For reads with caching
 ```python
-@readonly(cache_backend="memory", cache_ttl=3600)
-async def get_user_data(user_id: str) -> dict: ...
+@readonly(cache_backend="memory", cache_ttl=3600, sensitive_params=["api_key"])
+async def get_user_data(user_id: str, api_key: str) -> dict: ...
 ```
 
 #### `@sideeffect(...)` — For writes (no caching, but has retries/timeout)

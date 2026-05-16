@@ -39,7 +39,6 @@ RUN pip install --no-cache-dir -e ".[all,dev]"
 COPY toolops/ ./toolops/
 COPY tests/ ./tests/
 COPY Makefile ./
-COPY conftest.py ./
 
 # Default command runs the test suite
 CMD ["make", "test"]

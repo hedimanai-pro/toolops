@@ -42,7 +42,6 @@ services:
     container_name: toolops-dev
     environment:
       TOOLOPS_TEST_POSTGRES_DSN: postgresql://toolops:toolops@postgres:5432/toolops_test
-      TOOLOPS_APP: 
     volumes:
       - .:/workspace
       - /workspace/.venv
