@@ -60,6 +60,7 @@ class ToolContext:
     stale_entry: CacheEntry | None = None
     breaker: CircuitBreaker | None = None
     kwargs: dict[str, Any] = field(default_factory=dict)
+    result_recorded: bool = False
 
 
 # ---------------------------------------------------------------------------
@@ -87,164 +88,12 @@ class Middleware(ABC):
 # Concrete middlewares
 # ---------------------------------------------------------------------------
 
-class LoggingMiddleware(Middleware):
-    """Structured JSON logging for every tool call."""
-
-    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
-        ctx.start = time.monotonic()
-        logger.info("tool_start", tool=ctx.tool_name, tags=ctx.tags, params=ctx.kwargs)
-        metrics.record_tool_start(tool=ctx.tool_name, cache=ctx.cache_backend)
-
-        try:
-            result = await call_next()
-            ms = (time.monotonic() - ctx.start) * 1000
-            logger.info("tool_success", tool=ctx.tool_name, duration_ms=round(ms, 2), cached=False)
-            return result
-
-        except Exception:
-            ms = (time.monotonic() - ctx.start) * 1000
-            logger.error("tool_failed", tool=ctx.tool_name, duration_ms=round(ms, 2))
-            raise
-
-
-class CacheMiddleware(Middleware):
-    """Cache lookup, stale-if-error fallback, and cache write."""
-
-    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
-        if not ctx.cache_backend:
-            return await call_next()
-
-        cache = ctx.cache_backend
-
-        # --- Cache lookup ---
-        try:
-            cached = await cache_manager.get(cache, ctx.key)
-            if cached is not None:
-                self._record_hit(ctx, "fresh")
-                return cached
-
-            if ctx.stale_if_error:
-                ctx.stale_entry = await cache_manager.get_entry(cache, ctx.key, allow_stale=True)
-
-        except Exception as exc:
-            logger.warning("cache_read_error", tool=ctx.tool_name, error=str(exc))
-
-        # --- Execute tool ---
-        try:
-            result = await call_next()
-
-        except Exception as exc:
-            # Serve stale cache on error
-            if ctx.stale_if_error and ctx.stale_entry is not None:
-                self._record_stale(ctx, reason=str(exc))
-                return ctx.stale_entry.value
-            raise
-
-        # --- Cache write ---
-        if result is not None:
-            try:
-                await cache_manager.set(
-                    cache, ctx.key, result, ctx.cache_ttl,
-                    tags=ctx.entry_tags, stale_ttl=ctx.stale_ttl,
-                )
-            except Exception as exc:
-                logger.warning("cache_write_error", tool=ctx.tool_name, error=str(exc))
-
-        return result
-
-    def _record_hit(self, ctx: ToolContext, hit_kind: str) -> None:
-        ms = (time.monotonic() - ctx.start) * 1000
-        logger.info("cache_hit", tool=ctx.tool_name, cache=ctx.cache_backend, duration_ms=round(ms, 2), stale=False)
-        metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend, hit_kind=hit_kind)
-        metrics.record_tool_result(
-            tool=ctx.tool_name, status="cached",
-            duration_s=time.monotonic() - ctx.start,
-            cache=ctx.cache_backend, cached=True,
-        )
-
-    def _record_stale(self, ctx: ToolContext, reason: str) -> None:
-        logger.warning("cache_stale_served", tool=ctx.tool_name, cache=ctx.cache_backend, reason=reason)
-        metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale")
-        metrics.record_tool_result(
-            tool=ctx.tool_name, status="stale",
-            duration_s=time.monotonic() - ctx.start,
-            cache=ctx.cache_backend, cached=True,
-        )
-
-
-class CircuitBreakerMiddleware(Middleware):
-    """Circuit breaker protection around tool execution."""
-
-    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
-        if not ctx.circuit_breaker or ctx.breaker is None:
-            return await call_next()
-
-        try:
-            ctx.breaker.before_call()
-        except CircuitOpenError as exc:
-            logger.warning("circuit_rejected", tool=ctx.tool_name, retry_after=round(exc.retry_after, 2))
-            metrics.record_circuit_state(tool=ctx.tool_name, state="open")
-
-            # Serve stale cache if circuit is open
-            if ctx.stale_if_error and ctx.stale_entry is not None:
-                logger.warning("cache_stale_served", tool=ctx.tool_name, cache=ctx.cache_backend, reason="circuit_open")
-                metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale")
-                metrics.record_tool_result(tool=ctx.tool_name, status="stale", duration_s=time.monotonic() - ctx.start, cache=ctx.cache_backend, cached=True)
-                return ctx.stale_entry.value
-            raise
-
-        try:
-            result = await call_next()
-            ctx.breaker.record_success()
-            metrics.record_circuit_state(tool=ctx.tool_name, state="closed")
-            return result
-
-        except Exception:
-            ctx.breaker.record_failure()
-            metrics.record_circuit_state(tool=ctx.tool_name, state=ctx.breaker.state)
-            raise
-
-        finally:
-            ctx.breaker.finish_attempt()
-
-
-class RetryMiddleware(Middleware):
-    """Retry loop with configurable count and exponential backoff."""
-
-    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
-        last_error: Exception | None = None
-
-        for attempt in range(ctx.retry_count + 1):
-            try:
-                return await call_next()
-            except Exception as exc:
-                last_error = exc
-                logger.warning(
-                    "tool_retry", tool=ctx.tool_name,
-                    attempt=attempt + 1, of=ctx.retry_count + 1, reason=str(exc),
-                )
-                metrics.record_retry(tool=ctx.tool_name)
-                if attempt < ctx.retry_count:
-                    await asyncio.sleep(ctx.retry_delay * (2 ** attempt))
-
-        raise RuntimeError(
-            f"[{ctx.tool_name}] failed after {ctx.retry_count + 1} attempt(s): {last_error}"
-        )
-
-
-class CoalescingMiddleware(Middleware):
-    """Request coalescing — collapse concurrent identical calls into one."""
-
-    _coalescer = RequestCoalescer()
-
-    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
-        if not ctx.coalesce:
-            return await call_next()
-        return await self._coalescer.execute(ctx.key, lambda: call_next())
-
-
 class FallbackMiddleware(Middleware):
-    """Fallback execution when all retries are exhausted."""
+    """Fallback execution when all retries are exhausted.
+
+    Positioned FIRST in the pipeline so it catches errors from
+    all upstream middlewares (circuit breaker, retry exhausted, etc.).
+    """
 
     async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
         try:
@@ -295,6 +144,184 @@ class FallbackMiddleware(Middleware):
         return result
 
 
+class LoggingMiddleware(Middleware):
+    """Structured JSON logging for every tool call."""
+
+    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
+        ctx.start = time.monotonic()
+        logger.info("tool_start", tool=ctx.tool_name, tags=ctx.tags, params=ctx.kwargs)
+        metrics.record_tool_start(tool=ctx.tool_name, cache=ctx.cache_backend)
+
+        try:
+            result = await call_next()
+            ms = (time.monotonic() - ctx.start) * 1000
+            logger.info("tool_success", tool=ctx.tool_name, duration_ms=round(ms, 2), cached=False)
+            # Record success metrics only if not already recorded by CacheMiddleware
+            if not ctx.result_recorded:
+                metrics.record_tool_result(
+                    tool=ctx.tool_name, status="success",
+                    duration_s=time.monotonic() - ctx.start,
+                    cache=ctx.cache_backend, cached=False,
+                )
+            return result
+
+        except Exception:
+            ms = (time.monotonic() - ctx.start) * 1000
+            logger.error("tool_failed", tool=ctx.tool_name, duration_ms=round(ms, 2))
+            raise
+
+
+class CacheMiddleware(Middleware):
+    """Cache lookup, stale-if-error fallback, and cache write."""
+
+    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
+        if not ctx.cache_backend:
+            return await call_next()
+
+        cache = ctx.cache_backend
+
+        # --- Cache lookup ---
+        try:
+            cached = await cache_manager.get(cache, ctx.key)
+            if cached is not None:
+                self._record_hit(ctx, "fresh")
+                ctx.result_recorded = True
+                return cached
+
+            if ctx.stale_if_error:
+                ctx.stale_entry = await cache_manager.get_entry(cache, ctx.key, allow_stale=True)
+
+        except Exception as exc:
+            logger.warning("cache_read_error", tool=ctx.tool_name, error=str(exc))
+
+        # --- Execute tool ---
+        try:
+            result = await call_next()
+
+        except Exception as exc:
+            # Serve stale cache on error
+            if ctx.stale_if_error and ctx.stale_entry is not None:
+                self._record_stale(ctx, reason=str(exc))
+                ctx.result_recorded = True
+                return ctx.stale_entry.value
+            raise
+
+        # --- Cache write ---
+        if result is not None:
+            try:
+                await cache_manager.set(
+                    cache, ctx.key, result, ctx.cache_ttl,
+                    tags=ctx.entry_tags, stale_ttl=ctx.stale_ttl,
+                )
+            except Exception as exc:
+                logger.warning("cache_write_error", tool=ctx.tool_name, error=str(exc))
+
+        return result
+
+    def _record_hit(self, ctx: ToolContext, hit_kind: str) -> None:
+        ms = (time.monotonic() - ctx.start) * 1000
+        logger.info("cache_hit", tool=ctx.tool_name, cache=ctx.cache_backend, duration_ms=round(ms, 2), stale=False)
+        metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend, hit_kind=hit_kind)
+        metrics.record_tool_result(
+            tool=ctx.tool_name, status="cached",
+            duration_s=time.monotonic() - ctx.start,
+            cache=ctx.cache_backend, cached=True,
+        )
+
+    def _record_stale(self, ctx: ToolContext, reason: str) -> None:
+        logger.warning("cache_stale_served", tool=ctx.tool_name, cache=ctx.cache_backend, reason=reason)
+        metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale")
+        metrics.record_tool_result(
+            tool=ctx.tool_name, status="stale",
+            duration_s=time.monotonic() - ctx.start,
+            cache=ctx.cache_backend, cached=True,
+        )
+
+
+class RetryMiddleware(Middleware):
+    """Retry loop with configurable count and exponential backoff.
+
+    Propagates the original exception type when all retries are exhausted
+    (does not wrap it in RuntimeError).
+    """
+
+    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
+        last_error: Exception | None = None
+
+        for attempt in range(ctx.retry_count + 1):
+            try:
+                return await call_next()
+            except Exception as exc:
+                last_error = exc
+                logger.warning(
+                    "tool_retry", tool=ctx.tool_name,
+                    attempt=attempt + 1, of=ctx.retry_count + 1, reason=str(exc),
+                )
+                metrics.record_retry(tool=ctx.tool_name)
+                if attempt < ctx.retry_count:
+                    await asyncio.sleep(ctx.retry_delay * (2 ** attempt))
+
+        # All retries exhausted -- propagate the original exception
+        assert last_error is not None
+        raise last_error
+
+
+class CircuitBreakerMiddleware(Middleware):
+    """Circuit breaker protection around tool execution.
+
+    Positioned AFTER RetryMiddleware so that only failures that survive
+    all retries count toward the circuit breaker threshold.
+    """
+
+    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
+        if not ctx.circuit_breaker or ctx.breaker is None:
+            return await call_next()
+
+        try:
+            ctx.breaker.before_call()
+        except CircuitOpenError as exc:
+            logger.warning("circuit_rejected", tool=ctx.tool_name, retry_after=round(exc.retry_after, 2))
+            metrics.record_circuit_state(tool=ctx.tool_name, state="open")
+
+            # Serve stale cache if circuit is open
+            if ctx.stale_if_error and ctx.stale_entry is not None:
+                logger.warning("cache_stale_served", tool=ctx.tool_name, cache=ctx.cache_backend, reason="circuit_open")
+                metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale")
+                metrics.record_tool_result(tool=ctx.tool_name, status="stale", duration_s=time.monotonic() - ctx.start, cache=ctx.cache_backend, cached=True)
+                return ctx.stale_entry.value
+            raise
+
+        try:
+            result = await call_next()
+            ctx.breaker.record_success()
+            metrics.record_circuit_state(tool=ctx.tool_name, state="closed")
+            return result
+
+        except CircuitOpenError:
+            # Do not count circuit-open rejections as failures --
+            # they are a control signal, not an execution failure.
+            raise
+
+        except Exception:
+            ctx.breaker.record_failure()
+            metrics.record_circuit_state(tool=ctx.tool_name, state=ctx.breaker.state)
+            raise
+
+        finally:
+            ctx.breaker.finish_attempt()
+
+
+class CoalescingMiddleware(Middleware):
+    """Request coalescing -- collapse concurrent identical calls into one."""
+
+    _coalescer = RequestCoalescer()
+
+    async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
+        if not ctx.coalesce:
+            return await call_next()
+        return await self._coalescer.execute(ctx.key, lambda: call_next())
+
+
 # ---------------------------------------------------------------------------
 # Executor
 # ---------------------------------------------------------------------------
@@ -315,7 +342,7 @@ class ToolExecutor:
 
         Args:
             ctx: Tool execution context.
-            func: The user's tool function.
+            func: The user\'s tool function.
 
         Returns:
             Tool execution result.
@@ -330,7 +357,7 @@ class ToolExecutor:
                 index += 1
                 return await mw.process(ctx, call_next)
 
-            # Final layer: call the user's function
+            # Final layer: call the user\'s function
             result = func(**ctx.kwargs)
             if inspect.isawaitable(result):
                 if ctx.timeout:
@@ -346,12 +373,12 @@ class ToolExecutor:
 # ---------------------------------------------------------------------------
 
 DEFAULT_PIPELINE: list[type[Middleware]] = [
-    LoggingMiddleware,
-    CacheMiddleware,
-    CircuitBreakerMiddleware,
-    RetryMiddleware,
-    CoalescingMiddleware,
-    FallbackMiddleware,
+    FallbackMiddleware,       # 1st: catch all errors from upstream
+    LoggingMiddleware,        # 2nd: log every call
+    CacheMiddleware,          # 3rd: cache lookup / write
+    RetryMiddleware,          # 4th: retry with backoff
+    CircuitBreakerMiddleware, # 5th: count failures after retries
+    CoalescingMiddleware,     # 6th: dedup right before execution
 ]
 
 
