@@ -17,7 +17,7 @@ from __future__ import annotations
 from collections import defaultdict
 from contextlib import nullcontext
 from dataclasses import dataclass
-from typing import Any, Callable, cast
+from typing import Any
 
 DEFAULT_BUCKETS = (
     0.005,

@@ -112,7 +112,7 @@ async def test_fallback_middleware_executes_callable():
 @pytest.mark.asyncio
 async def test_cache_middleware_stale_if_error():
     """Test stale-if-error logic in CacheMiddleware."""
-    from toolops.cache import CacheEntry, MemoryCache, cache_manager
+    from toolops.cache import MemoryCache, cache_manager
     from toolops.middlewares import CacheMiddleware
 
     cache = MemoryCache()

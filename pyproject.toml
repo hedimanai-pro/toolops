@@ -90,6 +90,7 @@ include = 'toolops/.*\.py$|tests/.*\.py$'
 [tool.ruff]
 line-length = 88
 target-version = "py39"
+[tool.ruff.lint]
 select = [
     "E",   # pycodestyle errors
     "W",   # pycodestyle warnings
@@ -103,7 +104,7 @@ select = [
 ]
 ignore = ["E501"]  # Line too long — handled by Black
 
-[tool.ruff.isort]
+[tool.ruff.lint.isort]
 known-first-party = ["toolops"]
 
 [tool.mypy]
