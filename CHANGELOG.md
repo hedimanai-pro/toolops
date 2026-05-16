@@ -2,8 +2,36 @@
 
 All notable changes to ToolOps are documented here.
 
-Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
+Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)  
 Versioning: [Semantic Versioning](https://semver.org/)
+
+---
+
+## [0.2.0] — 2026-05-16
+
+### Added
+
+- **Middleware Pipeline Architecture** — Refactored monolithic `@tool` decorator into composable middlewares (`LoggingMiddleware`, `CacheMiddleware`, `CircuitBreakerMiddleware`, `RetryMiddleware`, `CoalescingMiddleware`, `FallbackMiddleware`). New `ToolExecutor` orchestrator and `ToolContext` shared state. Full backward compatibility — no breaking changes.
+- **CI/CD Pipelines** — GitHub Actions: `ci.yml` (lint, typecheck, test matrix 3.9-3.12, coverage) and `release.yml` (build + auto-publish to PyPI on tag).
+- **Docker Development Environment** — `Dockerfile` and `docker-compose.yml` with pre-configured PostgreSQL. One-command setup: `docker-compose up -d`.
+- **Makefile** — Standardized dev commands: `test`, `lint`, `format`, `typecheck`, `coverage`, `clean`, `docker-up`, `docker-down`.
+- **Community Files** — `CODE_OF_CONDUCT.md`, `SECURITY.md`, `CONTRIBUTING.md`, GitHub issue/PR templates.
+- **`sensitive_params` parameter** — All decorators now accept `sensitive_params` to exclude specific parameter names from cache keys.
+
+### Security
+
+- **SHA-256 Cache Key Hashing** — All cache keys are now SHA-256 hashed. Prevents sensitive data (tokens, PII) from appearing in plaintext in cache keys and logs.
+- **Automatic Log Masking** — Parameter values with known sensitive keywords (`token`, `api_key`, `password`, `secret`, etc.) are automatically masked as `***MASKED***` in structured logs.
+
+### Fixed
+
+- **PostgresCache.invalidate_tags()** — Was loading all cache entries into memory for Python-side tag matching (OOM risk on large tables). Now uses server-side filtering with GIN index + `jsonb @>` operator.
+- **SemanticCache O(n) eviction** — `list.pop(0)` caused linear time complexity. Replaced with `collections.deque(maxlen=...)` for O(1) append and automatic LRU eviction.
+- **MemoryCache race conditions** — Added `asyncio.Lock` protection for all critical sections under multi-threaded load.
+
+### Changed
+
+- **Packaging** — Removed `setup.py`, unified on `pyproject.toml` (PEP 621 compliant). Version bumped to `0.2.0`.
 
 ---
 
