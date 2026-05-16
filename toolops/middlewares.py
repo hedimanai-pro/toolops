@@ -20,9 +20,9 @@ from __future__ import annotations
 import time
 import asyncio
 import inspect
+from typing import Any, Callable
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Callable
 
 from toolops.logger import logger
 from toolops.observability import metrics
@@ -30,10 +30,6 @@ from toolops.coalescer import RequestCoalescer
 from toolops.cache import CacheEntry, cache_manager
 from toolops.resilience import CircuitBreaker, CircuitOpenError
 
-
-# ---------------------------------------------------------------------------
-# Shared execution context
-# ---------------------------------------------------------------------------
 
 @dataclass
 class ToolContext:
@@ -63,10 +59,6 @@ class ToolContext:
     result_recorded: bool = False
 
 
-# ---------------------------------------------------------------------------
-# Middleware interface
-# ---------------------------------------------------------------------------
-
 class Middleware(ABC):
     """Abstract base for all ToolOps middlewares."""
 
@@ -84,10 +76,6 @@ class Middleware(ABC):
         """
 
 
-# ---------------------------------------------------------------------------
-# Concrete middlewares
-# ---------------------------------------------------------------------------
-
 class FallbackMiddleware(Middleware):
     """Fallback execution when all retries are exhausted.
 
@@ -98,6 +86,7 @@ class FallbackMiddleware(Middleware):
     async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
         try:
             return await call_next()
+
         except Exception as exc:
             if ctx.fallback is None:
                 raise
@@ -111,30 +100,28 @@ class FallbackMiddleware(Middleware):
             )
             return result
 
-    async def _execute_fallback(
-        self, ctx: ToolContext, error: Exception,
-    ) -> Any:
+    async def _execute_fallback(self, ctx: ToolContext, error: Exception) -> Any:
         fallback = ctx.fallback
         if not callable(fallback):
             return fallback
 
         signature = inspect.signature(fallback)
         call_kwargs: dict[str, Any] = {}
-        accepts_var_kw = any(
-            param.kind == inspect.Parameter.VAR_KEYWORD
-            for param in signature.parameters.values()
-        )
+        accepts_var_kw = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values())
 
         if accepts_var_kw:
             call_kwargs.update(ctx.kwargs)
             call_kwargs["error"] = error
             call_kwargs["stale_value"] = ctx.stale_entry.value if ctx.stale_entry else None
+
         else:
             for name in signature.parameters:
                 if name in ctx.kwargs:
                     call_kwargs[name] = ctx.kwargs[name]
+
                 elif name == "error":
                     call_kwargs[name] = error
+
                 elif name == "stale_value":
                     call_kwargs[name] = ctx.stale_entry.value if ctx.stale_entry else None
 
@@ -209,10 +196,8 @@ class CacheMiddleware(Middleware):
         # --- Cache write ---
         if result is not None:
             try:
-                await cache_manager.set(
-                    cache, ctx.key, result, ctx.cache_ttl,
-                    tags=ctx.entry_tags, stale_ttl=ctx.stale_ttl,
-                )
+                await cache_manager.set(cache, ctx.key, result, ctx.cache_ttl, tags=ctx.entry_tags, stale_ttl=ctx.stale_ttl)
+
             except Exception as exc:
                 logger.warning("cache_write_error", tool=ctx.tool_name, error=str(exc))
 
@@ -253,10 +238,7 @@ class RetryMiddleware(Middleware):
                 return await call_next()
             except Exception as exc:
                 last_error = exc
-                logger.warning(
-                    "tool_retry", tool=ctx.tool_name,
-                    attempt=attempt + 1, of=ctx.retry_count + 1, reason=str(exc),
-                )
+                logger.warning("tool_retry", tool=ctx.tool_name, attempt=attempt + 1, of=ctx.retry_count + 1, reason=str(exc))
                 metrics.record_retry(tool=ctx.tool_name)
                 if attempt < ctx.retry_count:
                     await asyncio.sleep(ctx.retry_delay * (2 ** attempt))
@@ -279,6 +261,7 @@ class CircuitBreakerMiddleware(Middleware):
 
         try:
             ctx.breaker.before_call()
+
         except CircuitOpenError as exc:
             logger.warning("circuit_rejected", tool=ctx.tool_name, retry_after=round(exc.retry_after, 2))
             metrics.record_circuit_state(tool=ctx.tool_name, state="open")
@@ -289,6 +272,7 @@ class CircuitBreakerMiddleware(Middleware):
                 metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale")
                 metrics.record_tool_result(tool=ctx.tool_name, status="stale", duration_s=time.monotonic() - ctx.start, cache=ctx.cache_backend, cached=True)
                 return ctx.stale_entry.value
+
             raise
 
         try:
@@ -298,8 +282,7 @@ class CircuitBreakerMiddleware(Middleware):
             return result
 
         except CircuitOpenError:
-            # Do not count circuit-open rejections as failures --
-            # they are a control signal, not an execution failure.
+            # Do not count circuit-open rejections as failures; they are a control signal, not an execution failure.
             raise
 
         except Exception:
@@ -315,16 +298,12 @@ class CoalescingMiddleware(Middleware):
     """Request coalescing -- collapse concurrent identical calls into one."""
 
     _coalescer = RequestCoalescer()
-
     async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
         if not ctx.coalesce:
             return await call_next()
+
         return await self._coalescer.execute(ctx.key, lambda: call_next())
 
-
-# ---------------------------------------------------------------------------
-# Executor
-# ---------------------------------------------------------------------------
 
 class ToolExecutor:
     """Orchestrates middleware execution in a pipeline."""
@@ -332,11 +311,8 @@ class ToolExecutor:
     def __init__(self, middlewares: list[Middleware]) -> None:
         self._middlewares = middlewares
 
-    async def execute(
-        self,
-        ctx: ToolContext,
-        func: Callable[..., Any],
-    ) -> Any:
+
+    async def execute(self, ctx: ToolContext, func: Callable[..., Any]) -> Any:
         """
         Execute the middleware pipeline, ending with the user function.
 
@@ -349,7 +325,6 @@ class ToolExecutor:
         """
 
         index = 0
-
         async def call_next() -> Any:
             nonlocal index
             if index < len(self._middlewares):
@@ -362,15 +337,13 @@ class ToolExecutor:
             if inspect.isawaitable(result):
                 if ctx.timeout:
                     return await asyncio.wait_for(result, timeout=ctx.timeout)
+
                 return await result
+
             return result
 
         return await call_next()
 
-
-# ---------------------------------------------------------------------------
-# Default pipeline factory
-# ---------------------------------------------------------------------------
 
 DEFAULT_PIPELINE: list[type[Middleware]] = [
     FallbackMiddleware,       # 1st: catch all errors from upstream
@@ -382,9 +355,7 @@ DEFAULT_PIPELINE: list[type[Middleware]] = [
 ]
 
 
-def build_executor(
-    middleware_classes: list[type[Middleware]] | None = None,
-) -> ToolExecutor:
+def build_executor(middleware_classes: list[type[Middleware]] | None = None) -> ToolExecutor:
     """
     Build a ToolExecutor with the given middleware classes.
 
