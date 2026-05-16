@@ -1,0 +1,93 @@
+# Name: ci.yml
+#
+# Description: Continuous Integration pipeline for ToolOps.
+#              Runs lint, type-check, and tests across Python 3.9-3.12.
+#
+# Last_updated: 2026-05-16
+#
+# Updated_by: Hedi Manai
+# Github: https://github.com/hedimanai-pro
+# LinkedIn: https://www.linkedin.com/in/hedimanai
+#
+# Note: This project is open source for knowledge sharing
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lint dependencies
+        run: pip install ruff black
+
+      - name: Check formatting with Black
+        run: black --check --diff toolops tests
+
+      - name: Lint with Ruff
+        run: ruff check toolops tests
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package with all extras
+        run: pip install -e ".[all,dev]"
+
+      - name: Run mypy strict
+        run: mypy --strict toolops
+
+  test:
+    name: Test Matrix
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package with all extras
+        run: pip install -e ".[all,dev]"
+
+      - name: Run tests with coverage
+        run: pytest tests/ -v --cov=toolops --cov-report=xml --cov-report=term-missing --cov-fail-under=80
+
+      - name: Upload coverage to Codecov
+        if: matrix.python-version == '3.12'
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
