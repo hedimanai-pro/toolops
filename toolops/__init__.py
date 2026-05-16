@@ -1,9 +1,9 @@
 """
 Name: __init__.py
 
-Description: ToolOps SDK core package initialization.
+Description: ToolOps public API exports.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro
@@ -12,54 +12,53 @@ LinkedIn: https://www.linkedin.com/in/hedimanai
 Note: This project is open source for knowledge sharing
 """
 
-from importlib.metadata import PackageNotFoundError, version
+from __future__ import annotations
 
-from toolops.cache import (
-    CacheBackend,
-    CacheEntry,
-    CacheManager,
-    FileCache,
-    MemoryCache,
-    OpenAIEmbedder,
-    PostgresCache,
-    SemanticCache,
-    SentenceTransformerEmbedder,
-    cache_manager,
-    cosine_similarity,
+from toolops.decorators import (
+    tool,
+    readonly,
+    sideeffect,
+    stateful,
+    build_cache_key,
 )
-from toolops.logger import ToolOpsLogger, logger
-from toolops.observability import configure_opentelemetry, prometheus_metrics
-from toolops.decorators import build_cache_key, readonly, sideeffect, stateful, tool
+from toolops.cache import cache_manager
+from toolops.observability import prometheus_metrics
 
-
-try:
-    __version__ = version("toolops")
-except PackageNotFoundError:
-    __version__ = "0.0.0-dev"
-
-__author__ = "Hedi Manai"
-__license__ = "Apache-2.0"
+# v0.2.0 — middleware pipeline (new public API)
+from toolops.middlewares import (
+    ToolContext,
+    ToolExecutor,
+    Middleware,
+    LoggingMiddleware,
+    CacheMiddleware,
+    CircuitBreakerMiddleware,
+    RetryMiddleware,
+    CoalescingMiddleware,
+    FallbackMiddleware,
+    build_executor,
+    DEFAULT_PIPELINE,
+)
 
 __all__ = [
+    # Decorators
     "tool",
-    "build_cache_key",
     "readonly",
     "sideeffect",
     "stateful",
-    "CacheBackend",
-    "CacheEntry",
-    "MemoryCache",
-    "PostgresCache",
-    "FileCache",
-    "SemanticCache",
-    "SentenceTransformerEmbedder",
-    "OpenAIEmbedder",
-    "CacheManager",
+    "build_cache_key",
+    # Core components
     "cache_manager",
-    "cosine_similarity",
-    "configure_opentelemetry",
     "prometheus_metrics",
-    "ToolOpsLogger",
-    "logger",
-    "__version__",
+    # Middleware pipeline (v0.2.0)
+    "ToolContext",
+    "ToolExecutor",
+    "Middleware",
+    "LoggingMiddleware",
+    "CacheMiddleware",
+    "CircuitBreakerMiddleware",
+    "RetryMiddleware",
+    "CoalescingMiddleware",
+    "FallbackMiddleware",
+    "build_executor",
+    "DEFAULT_PIPELINE",
 ]
