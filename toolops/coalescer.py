@@ -3,7 +3,7 @@ Name: coalescer.py
 
 Description: Request coalescing for concurrent tool calls.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

@@ -3,7 +3,7 @@ Name: logger.py
 
 Description: Structured JSON logging for ToolOps SDK.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro
