@@ -14,10 +14,13 @@ Note: This project is open source for knowledge sharing
 
 from __future__ import annotations
 
+import pytest
+
 from toolops import cache_manager, prometheus_metrics, readonly
 from toolops.cache import MemoryCache
 
 
+@pytest.mark.asyncio
 async def test_prometheus_metrics_include_cache_and_duration_series():
     """Test that Prometheus metrics are correctly rendered after tool calls."""
 
