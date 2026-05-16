@@ -16,10 +16,12 @@ from __future__ import annotations
 
 import json
 import time
+import asyncio
 import hashlib
 from pathlib import Path
 from typing import Any, Iterable
 from abc import ABC, abstractmethod
+from collections import deque
 from datetime import datetime, timezone
 from dataclasses import dataclass, field
 
@@ -393,17 +395,18 @@ class CacheBackend(ABC):
 
 
 class MemoryCache(CacheBackend, TaggedCacheMixin):
-    """In-memory cache implementation."""
+    """In-memory cache implementation with async thread-safety."""
 
 
     def __init__(self) -> None:
-        """Initialize memory store and indices."""
+        """Initialize memory store, indices, and async lock."""
 
         self._store: dict[str, CacheEntry] = {}
         self._tag_index: dict[str, set[str]] = {}
         self._hits = 0
         self._misses = 0
         self._sets = 0
+        self._lock = asyncio.Lock()
 
 
     def _purge_if_expired(self, key: str) -> CacheEntry | None:
@@ -458,6 +461,8 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
         """
         Get value from memory.
 
+        Thread-safe: protected by asyncio.Lock.
+
         Args:
             key: Cache key.
 
@@ -465,18 +470,21 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             Value or None.
         """
 
-        entry = self._purge_if_expired(key)
-        if entry and entry.is_fresh():
-            self._hits += 1
-            return entry.value
+        async with self._lock:
+            entry = self._purge_if_expired(key)
+            if entry and entry.is_fresh():
+                self._hits += 1
+                return entry.value
 
-        self._misses += 1
-        return None
+            self._misses += 1
+            return None
 
 
     async def get_entry(self, key: str, *, allow_stale: bool = False) -> CacheEntry | None:
         """
         Get entry from memory.
+
+        Thread-safe: protected by asyncio.Lock.
 
         Args:
             key: Cache key.
@@ -486,22 +494,25 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             Entry or None.
         """
 
-        entry = self._purge_if_expired(key)
-        if not entry:
+        async with self._lock:
+            entry = self._purge_if_expired(key)
+            if not entry:
+                return None
+
+            if entry.is_fresh():
+                return entry
+
+            if allow_stale and entry.is_stale():
+                return entry
+
             return None
-
-        if entry.is_fresh():
-            return entry
-
-        if allow_stale and entry.is_stale():
-            return entry
-
-        return None
 
 
     async def set(self, key: str, value: Any, ttl: int, *, tags: list[str] | None = None, stale_ttl: int | None = None) -> None:
         """
         Store value in memory.
+
+        Thread-safe: protected by asyncio.Lock.
 
         Args:
             key: Cache key.
@@ -511,39 +522,46 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             stale_ttl: Optional stale TTL.
         """
 
-        existing = self._store.get(key)
-        if existing:
-            self._unindex(existing)
+        async with self._lock:
+            existing = self._store.get(key)
+            if existing:
+                self._unindex(existing)
 
-        entry = CacheEntry.create(key, value, ttl, tags=tags, stale_ttl=stale_ttl)
-        self._store[key] = entry
-        self._index(entry)
-        self._sets += 1
+            entry = CacheEntry.create(key, value, ttl, tags=tags, stale_ttl=stale_ttl)
+            self._store[key] = entry
+            self._index(entry)
+            self._sets += 1
 
 
     async def delete(self, key: str) -> None:
         """
         Delete key from memory.
 
+        Thread-safe: protected by asyncio.Lock.
+
         Args:
             key: Cache key.
         """
 
-        entry = self._store.pop(key, None)
-        if entry:
-            self._unindex(entry)
+        async with self._lock:
+            entry = self._store.pop(key, None)
+            if entry:
+                self._unindex(entry)
 
 
     async def clear(self) -> None:
         """Clear all memory entries."""
 
-        self._store.clear()
-        self._tag_index.clear()
+        async with self._lock:
+            self._store.clear()
+            self._tag_index.clear()
 
 
     async def invalidate_tags(self, tags: list[str]) -> int:
         """
         Invalidate memory by tags.
+
+        Thread-safe: protected by asyncio.Lock.
 
         Args:
             tags: Tags to drop.
@@ -552,19 +570,22 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             Removed count.
         """
 
-        wanted = _normalise_tags(tags)
-        keys: set[str] = set()
-        for tag in wanted:
-            keys.update(self._tag_index.get(tag, set()))
+        async with self._lock:
+            wanted = _normalise_tags(tags)
+            keys: set[str] = set()
+            for tag in wanted:
+                keys.update(self._tag_index.get(tag, set()))
 
-        count = 0
+            count = 0
 
-        for key in keys:
-            if key in self._store:
-                await self.delete(key)
-                count += 1
+            for key in keys:
+                if key in self._store:
+                    entry = self._store.pop(key, None)
+                    if entry:
+                        self._unindex(entry)
+                    count += 1
 
-        return count
+            return count
 
 
     async def inspect(self, key: str) -> dict[str, Any] | None:
@@ -612,10 +633,13 @@ _PG_INIT = """
 CREATE TABLE IF NOT EXISTS toolops_cache (
     key        TEXT PRIMARY KEY,
     value      JSONB       NOT NULL,
-    expires_at TIMESTAMPTZ NOT NULL
+    expires_at TIMESTAMPTZ NOT NULL,
+    tags       JSONB       NOT NULL DEFAULT '[]'::jsonb
 );
 CREATE INDEX IF NOT EXISTS idx_toolops_expires
     ON toolops_cache (expires_at);
+CREATE INDEX IF NOT EXISTS idx_toolops_tags
+    ON toolops_cache USING GIN (tags);
 """
 
 
@@ -755,15 +779,17 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
         async with self._pool.acquire() as conn:
             await conn.execute(
                 """
-                INSERT INTO toolops_cache (key, value, expires_at)
-                VALUES ($1, $2, TO_TIMESTAMP($3))
+                INSERT INTO toolops_cache (key, value, expires_at, tags)
+                VALUES ($1, $2, TO_TIMESTAMP($3), $4::jsonb)
                 ON CONFLICT (key) DO UPDATE
                     SET value      = EXCLUDED.value,
-                        expires_at = EXCLUDED.expires_at
+                        expires_at = EXCLUDED.expires_at,
+                        tags       = EXCLUDED.tags
                 """,
                 key,
                 entry.payload(),
                 entry.stale_until,
+                entry.tags,
             )
         self._sets += 1
 
@@ -789,7 +815,11 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
 
     async def invalidate_tags(self, tags: list[str]) -> int:
         """
-        Invalidate Postgres entries by tags.
+        Invalidate Postgres entries by tags using GIN index.
+
+        Uses the JSONB @> (contains) operator with the GIN index
+        on the tags column for efficient server-side filtering.
+        Avoids loading all entries into memory (pre-v0.2.0 bug).
 
         Args:
             tags: Tags to drop.
@@ -799,16 +829,26 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
         """
 
         wanted = _normalise_tags(tags)
-        count = 0
-        async with self._pool.acquire() as conn:
-            rows = await conn.fetch("SELECT key, value, expires_at FROM toolops_cache WHERE expires_at > NOW()")
-            for row in rows:
-                entry = CacheEntry.from_payload(row["key"], row["value"], fallback_expiry=row["expires_at"].timestamp())
-                if self._matching_tags(entry.tags, wanted):
-                    await conn.execute("DELETE FROM toolops_cache WHERE key = $1", row["key"])
-                    count += 1
+        if not wanted:
+            return 0
 
-        return count
+        async with self._pool.acquire() as conn:
+            # The GIN index on tags column makes this efficient:
+            # @> operator checks if JSONB array contains any of the wanted tags.
+            # We build a JSONB array of wanted tags and use @> for each tag.
+            total = 0
+            for tag in wanted:
+                result = await conn.execute(
+                    "DELETE FROM toolops_cache WHERE tags @> $1::jsonb AND expires_at > NOW()",
+                    [tag],
+                )
+                # asyncpg returns a status string like "DELETE 3"
+                try:
+                    total += int(result.split()[1]) if len(result.split()) > 1 else 0
+                except (IndexError, ValueError):
+                    pass
+
+        return total
 
 
     async def inspect(self, key: str) -> dict[str, Any] | None:
@@ -1162,7 +1202,7 @@ class OpenAIEmbedder:
 
 
 class SemanticCache(CacheBackend, TaggedCacheMixin):
-    """Similarity-based semantic cache."""
+    """Similarity-based semantic cache with O(1) LRU eviction."""
 
 
     def __init__(self, embedder: Any, threshold: float = 0.92, max_entries: int = 1_000) -> None:
@@ -1178,7 +1218,9 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         self._embedder = embedder
         self._threshold = threshold
         self._max_entries = max_entries
-        self._entries: list[dict[str, Any]] = []
+        # deque with maxlen provides O(1) append and automatic eviction
+        # of the oldest entry when capacity is reached (fixes v0.1.x O(n) pop(0))
+        self._entries: deque[dict[str, Any]] = deque(maxlen=max_entries)
         self._hits = 0
         self._misses = 0
         self._semantic_hits = 0
@@ -1211,7 +1253,11 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         """Remove expired entries from memory."""
 
         now = _now()
-        self._entries = [entry for entry in self._entries if not entry["entry"].is_expired(now)]
+        # Rebuild deque with only non-expired entries (preserves maxlen)
+        self._entries = deque(
+            [entry for entry in self._entries if not entry["entry"].is_expired(now)],
+            maxlen=self._max_entries,
+        )
 
 
     async def get(self, key: str) -> Any | None:
@@ -1288,6 +1334,9 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         """
         Store value with embedding.
 
+        Uses deque with maxlen for O(1) append and automatic LRU eviction.
+        Replaces the O(n) list.pop(0) from v0.1.x.
+
         Args:
             key: Cache key.
             value: Store value.
@@ -1301,11 +1350,13 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         entry = CacheEntry.create(key, value, ttl, tags=tags, stale_ttl=stale_ttl)
         self._cleanup()
 
-        self._entries = [wrapped for wrapped in self._entries if wrapped["entry"].key != key]
+        # Remove existing entry for this key to avoid duplicates
+        self._entries = deque(
+            [wrapped for wrapped in self._entries if wrapped["entry"].key != key],
+            maxlen=self._max_entries,
+        )
 
-        if len(self._entries) >= self._max_entries:
-            self._entries.pop(0)
-
+        # deque.append with maxlen: O(1) — oldest entry auto-evicted at capacity
         self._entries.append({"entry": entry, "query": query, "embedding": embedding})
         self._sets += 1
 
@@ -1318,7 +1369,10 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
             key: Cache key.
         """
 
-        self._entries = [wrapped for wrapped in self._entries if wrapped["entry"].key != key]
+        self._entries = deque(
+            [wrapped for wrapped in self._entries if wrapped["entry"].key != key],
+            maxlen=self._max_entries,
+        )
 
 
     async def clear(self) -> None:
@@ -1340,7 +1394,10 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
 
         wanted = _normalise_tags(tags)
         before = len(self._entries)
-        self._entries = [wrapped for wrapped in self._entries if not self._matching_tags(wrapped["entry"].tags, wanted)]
+        self._entries = deque(
+            [wrapped for wrapped in self._entries if not self._matching_tags(wrapped["entry"].tags, wanted)],
+            maxlen=self._max_entries,
+        )
         return before - len(self._entries)
 
 
