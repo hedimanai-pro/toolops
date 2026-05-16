@@ -126,3 +126,23 @@ async def test_invalidate_by_tags_only_evicts_matching_entries():
 
     assert alice_after["call"] == 3
     assert bob_after == bob_first
+
+
+@pytest.mark.asyncio
+async def test_coalescing_middleware_integration():
+    """Test that coalesce=True correctly merges concurrent decorated calls."""
+    cache_manager.register("memory", MemoryCache(), is_default=True)
+    calls = 0
+
+    @readonly(cache_backend="memory", cache_ttl=60, coalesce=True)
+    async def expensive_op(val: int) -> int:
+        nonlocal calls
+        calls += 1
+        await asyncio.sleep(0.1)
+        return val * 2
+
+    # Fire 5 concurrent requests for the same value
+    results = await asyncio.gather(*[expensive_op(val=10) for _ in range(5)])
+
+    assert all(r == 20 for r in results)
+    assert calls == 1

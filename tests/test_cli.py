@@ -100,3 +100,39 @@ def test_cli_clear_backend(monkeypatch, capsys):
     main(["--app", "clear_toolops_app:setup_toolops", "clear", "clearme"])
     output = json.loads(capsys.readouterr().out)
     assert output == {"cleared": ["clearme"]}
+
+
+def test_cli_metrics_and_invalidate(monkeypatch, capsys):
+    """Test 'metrics' and 'invalidate-tags' CLI commands."""
+
+    tmp_dir = _workspace_tmp("extra")
+    app_file = tmp_dir / "extra_toolops_app.py"
+    app_file.write_text(
+        "\n".join(
+            [
+                "from toolops import cache_manager",
+                "from toolops.cache import MemoryCache",
+                "",
+                "async def setup():",
+                "    cache_manager.register('m1', MemoryCache(), is_default=True)",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.syspath_prepend(str(tmp_dir))
+
+    # Call a tool to generate metrics
+    from toolops import readonly
+    @readonly(cache_backend='m1')
+    async def some_tool(): return 1
+    import asyncio
+    asyncio.run(some_tool())
+
+    main(["--app", "extra_toolops_app:setup", "metrics"])
+    metrics_output = capsys.readouterr().out
+    assert "toolops_tool_calls_total" in metrics_output
+
+    main(["--app", "extra_toolops_app:setup", "invalidate-tags", "m1", "t1"])
+    inv_output = json.loads(capsys.readouterr().out)
+    assert inv_output["deleted"] == 0
+    assert inv_output["tags"] == ["t1"]

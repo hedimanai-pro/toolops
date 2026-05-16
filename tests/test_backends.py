@@ -80,6 +80,19 @@ async def test_postgres_cache_mocked():
     await cache.set(key, value, ttl=60)
     assert mock_conn.execute.called
 
+    # Delete
+    await cache.delete(key)
+    assert mock_conn.execute.call_count >= 2
+
+    # Clear
+    await cache.clear()
+    assert mock_conn.execute.call_count >= 3
+
+    # Stats
+    mock_conn.fetchval.return_value = 10
+    stats = await cache.stats()
+    assert stats["backend"] == "postgres"
+
 
 @pytest.mark.asyncio
 async def test_semantic_cache_logic():
@@ -100,3 +113,48 @@ async def test_semantic_cache_logic():
 
     assert res == "Instructions"
     assert mock_embedder.embed.call_count == 2
+    
+    # Clear
+    await cache.clear()
+    assert len(cache._entries) == 0
+    
+    # Stats
+    stats = await cache.stats()
+    assert stats["backend"] == "semantic"
+
+
+def test_cache_entry_serialization():
+    """Test that CacheEntry can be converted to/from payload correctly."""
+    from toolops.cache import CacheEntry
+    
+    entry = CacheEntry.create("k1", {"data": 1}, ttl=60, tags=["t1"])
+    payload = entry.payload()
+    
+    assert payload["key"] == "k1"
+    assert payload["value"]["data"] == 1
+    assert "t1" in payload["tags"]
+    
+    # Reconstruct
+    new_entry = CacheEntry.from_payload("k1", payload)
+    assert new_entry.value == entry.value
+    assert new_entry.tags == entry.tags
+    assert new_entry.fresh_until == entry.fresh_until
+
+
+@pytest.mark.asyncio
+async def test_memory_cache_stats_and_clear():
+    """Test MemoryCache stats tracking and clear operation."""
+    from toolops.cache import MemoryCache
+    cache = MemoryCache()
+    
+    await cache.set("k1", "v1", ttl=60)
+    await cache.get("k1")  # Hit
+    await cache.get("k2")  # Miss
+    
+    stats = await cache.stats()
+    assert stats["hits"] == 1
+    assert stats["misses"] == 1
+    assert stats["size"] == 1
+    
+    await cache.clear()
+    assert len(cache._store) == 0
