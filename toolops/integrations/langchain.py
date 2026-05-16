@@ -35,7 +35,7 @@ def _sync_wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
     def wrapped(*args: Any, **kwargs: Any) -> Any:
         result = func(*args, **kwargs)
         if inspect.isawaitable(result):
-            return asyncio.run(result)
+            return asyncio.run(result)  # type: ignore[arg-type]
         return result
 
     return wrapped

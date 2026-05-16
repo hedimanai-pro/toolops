@@ -323,9 +323,7 @@ class _SpanContext:
         """
 
         from typing import cast
-        return cast(
-            bool, self._context.__exit__(exc_type, exc, tb)
-        )
+        return cast(bool, self._context.__exit__(exc_type, exc, tb))
 
 
 class ToolOpsMetrics:

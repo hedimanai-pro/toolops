@@ -45,7 +45,7 @@ def as_crewai_tool(
     def sync_callable(*args: Any, **kwargs: Any) -> Any:
         result = func(*args, **kwargs)
         if inspect.isawaitable(result):
-            return asyncio.run(result)
+            return asyncio.run(result)  # type: ignore[arg-type]
         return result
 
     return CrewTool(name=tool_name, func=sync_callable, description=tool_description)

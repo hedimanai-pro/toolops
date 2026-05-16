@@ -48,7 +48,7 @@ def as_llamaindex_tool(
     def sync_callable(*args: Any, **kwargs: Any) -> Any:
         result = func(*args, **kwargs)
         if inspect.isawaitable(result):
-            return asyncio.run(result)
+            return asyncio.run(result)  # type: ignore[arg-type]
         return result
 
     try:
