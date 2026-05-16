@@ -111,11 +111,9 @@ class CircuitBreaker:
                 return
 
             now = time.monotonic()
-
             if self._state == "open":
                 assert self._opened_at is not None
                 retry_after = self._recovery_timeout - (now - self._opened_at)
-
                 if retry_after > 0:
                     raise CircuitOpenError(self._tool, retry_after)
 
@@ -152,7 +150,6 @@ class CircuitBreaker:
                 return
 
             self._failures += 1
-
             if self._failures >= self._failure_threshold:
                 self._state = "open"
                 self._opened_at = now
