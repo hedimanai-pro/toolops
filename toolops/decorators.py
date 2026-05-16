@@ -18,6 +18,7 @@ import json
 import time
 import asyncio
 import inspect
+import hashlib
 import functools
 from typing import Any, Callable
 
@@ -32,28 +33,67 @@ _coalescer = RequestCoalescer()
 _circuit_breakers: dict[str, CircuitBreaker] = {}
 
 
-def _cache_key(name: str, kwargs: dict[str, Any], key_params: list[str] | None) -> str:
+def _cache_key(name: str, kwargs: dict[str, Any], key_params: list[str] | None, sensitive_params: list[str] | None = None) -> str:
     """
-    Generate a stable cache key for a tool call.
+    Generate a stable, SHA-256 hashed cache key for a tool call.
+
+    Prevents sensitive data (tokens, PII) from appearing in plaintext
+    in cache keys and logs. Added in v0.2.0.
 
     Args:
         name: Tool name.
         kwargs: Bound tool arguments.
         key_params: Specific parameters to include.
+        sensitive_params: Parameter names to exclude from the key.
 
     Returns:
-        Hashed or serialized key string.
+        SHA-256 hashed key string (hex digest).
     """
 
-    if key_params:
-        pairs = [[p, kwargs[p]] for p in key_params if p in kwargs]
-    else:
-        pairs = [[k, v] for k, v in sorted(kwargs.items())]
+    sensitive = set(sensitive_params or [])
 
-    return f"{name}:{json.dumps(pairs, default=str)}"
+    if key_params:
+        pairs = [[p, kwargs[p]] for p in key_params if p in kwargs and p not in sensitive]
+    else:
+        pairs = [[k, v] for k, v in sorted(kwargs.items()) if k not in sensitive]
+
+    raw = f"{name}:{json.dumps(pairs, default=str)}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
 
 build_cache_key = _cache_key
+
+
+# Parameter names commonly containing sensitive data — auto-masked in logs.
+_SENSITIVE_PARAM_NAMES = frozenset({
+    "token", "api_key", "apikey", "password", "secret", "auth",
+    "authorization", "key", "credential", "credentials",
+    "access_token", "refresh_token", "private_key", "bearer",
+})
+
+
+def _mask_sensitive_params(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """
+    Return a copy of kwargs with sensitive values masked for logging.
+
+    Any parameter whose name contains a known sensitive keyword
+    has its value replaced with '***MASKED***'.
+
+    Args:
+        kwargs: Original tool arguments.
+
+    Returns:
+        Sanitized arguments safe for logging.
+    """
+
+    masked: dict[str, Any] = {}
+    for key, value in kwargs.items():
+        lower_key = key.lower()
+        if any(s in lower_key for s in _SENSITIVE_PARAM_NAMES):
+            masked[key] = "***MASKED***"
+        else:
+            masked[key] = value
+    return masked
 
 
 def _bind(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -170,6 +210,7 @@ def tool(
     cache_ttl: int = 3600,
     cache_key_params: list[str] | None = None,
     cache_tags: list[str] | Callable[[dict[str, Any]], list[str]] | None = None,
+    sensitive_params: list[str] | None = None,
     stale_if_error: bool = False,
     stale_ttl: int | None = None,
     coalesce: bool = False,
@@ -191,6 +232,7 @@ def tool(
         cache_ttl: Cache TTL.
         cache_key_params: Params for key.
         cache_tags: Tags for invalidation.
+        sensitive_params: Param names to exclude from cache key and logs.
         stale_if_error: Serve stale on error.
         stale_ttl: Stale window TTL.
         coalesce: Collapse concurrent calls.
@@ -212,114 +254,34 @@ def tool(
         tool_tags = tags or []
         breaker = _breaker_for(tool_name, failure_threshold=circuit_failure_threshold, recovery_timeout=circuit_recovery_timeout) if circuit_breaker else None
 
-        async def _run(**kwargs: Any) -> Any:
-            key = _cache_key(tool_name, kwargs, cache_key_params)
-            entry_tags = _resolve_cache_tags(tool_name, kwargs, cache_tags)
-            start = time.monotonic()
-            stale_entry: CacheEntry | None = None
+        # Build the middleware pipeline for this tool (v0.2.0 — refactored from monolithic)
+        _executor = build_executor()
 
-            logger.info("tool_start", tool=tool_name, tags=tool_tags, params=kwargs)
-            metrics.record_tool_start(tool=tool_name, cache=cache_backend)
+        async def _run(**kwargs: Any) -> Any:
+            key = _cache_key(tool_name, kwargs, cache_key_params, sensitive_params)
+            entry_tags = _resolve_cache_tags(tool_name, kwargs, cache_tags)
+
+            ctx = ToolContext(
+                tool_name=tool_name,
+                cache_backend=cache_backend,
+                cache_ttl=cache_ttl,
+                stale_if_error=stale_if_error,
+                stale_ttl=stale_ttl,
+                coalesce=coalesce,
+                timeout=timeout,
+                retry_count=retry_count,
+                retry_delay=retry_delay,
+                fallback=fallback,
+                circuit_breaker=circuit_breaker,
+                tags=tool_tags,
+                key=key,
+                entry_tags=entry_tags,
+                breaker=breaker,
+                kwargs=kwargs,
+            )
 
             with metrics.otel.start_span(f"toolops.{tool_name}", attributes={"toolops.tool": tool_name, "toolops.cache_backend": cache_backend or "none"}):
-                if cache_backend:
-                    try:
-                        cached = await cache_manager.get(cache_backend, key)
-                        if cached is not None:
-                            ms = (time.monotonic() - start) * 1000
-                            logger.info("cache_hit", tool=tool_name, cache=cache_backend, duration_ms=round(ms, 2), stale=False)
-                            metrics.record_cache_hit(tool=tool_name, cache=cache_backend, hit_kind="fresh")
-                            metrics.record_tool_result(tool=tool_name, status="cached", duration_s=time.monotonic() - start, cache=cache_backend, cached=True)
-                            return cached
-
-                        if stale_if_error:
-                            stale_entry = await cache_manager.get_entry(cache_backend, key, allow_stale=True)
-
-                    except Exception as exc:
-                        logger.warning("cache_read_error", tool=tool_name, error=str(exc))
-
-                if breaker is not None:
-                    try:
-                        breaker.before_call()
-
-                    except CircuitOpenError as exc:
-                        logger.warning("circuit_rejected", tool=tool_name, retry_after=round(exc.retry_after, 2))
-                        metrics.record_circuit_state(tool=tool_name, state="open")
-                        if stale_if_error and stale_entry is not None:
-                            logger.warning("cache_stale_served", tool=tool_name, cache=cache_backend, reason="circuit_open")
-                            metrics.record_cache_hit(tool=tool_name, cache=cache_backend or "none", hit_kind="stale")
-                            metrics.record_tool_result(tool=tool_name, status="stale", duration_s=time.monotonic() - start, cache=cache_backend, cached=True)
-                            return stale_entry.value
-
-                        if fallback is not None:
-                            result = await _call_fallback(fallback, kwargs=kwargs, error=exc, stale_entry=stale_entry)
-                            logger.warning("tool_fallback", tool=tool_name, reason="circuit_open")
-                            metrics.record_tool_result(tool=tool_name, status="fallback", duration_s=time.monotonic() - start, cache=cache_backend, cached=False)
-                            return result
-                        raise
-
-                async def _execute() -> Any:
-                    last: Exception | None = None
-                    for attempt in range(retry_count + 1):
-                        try:
-                            result = func(**kwargs)
-                            if inspect.isawaitable(result):
-                                return await (asyncio.wait_for(result, timeout=timeout) if timeout else result)
-                            return result
-
-                        except Exception as exc:
-                            last = exc
-                            logger.warning("tool_retry", tool=tool_name, attempt=attempt + 1, of=retry_count + 1, reason=str(exc))
-                            metrics.record_retry(tool=tool_name)
-                            if attempt < retry_count:
-                                await asyncio.sleep(retry_delay)
-
-                    raise RuntimeError(f"[{tool_name}] failed after {retry_count + 1} attempt(s): {last}")
-
-                try:
-                    result = await _coalescer.execute(key, _execute) if coalesce else await _execute()
-                    if breaker is not None:
-                        breaker.record_success()
-                        metrics.record_circuit_state(tool=tool_name, state="closed")
-
-                except Exception as exc:
-                    if breaker is not None:
-                        breaker.record_failure()
-                        metrics.record_circuit_state(tool=tool_name, state=breaker.state)
-                        breaker.finish_attempt()
-
-                    if stale_if_error and stale_entry is not None:
-                        logger.warning("cache_stale_served", tool=tool_name, cache=cache_backend, reason=str(exc))
-                        metrics.record_cache_hit(tool=tool_name, cache=cache_backend or "none", hit_kind="stale")
-                        metrics.record_tool_result(tool=tool_name, status="stale", duration_s=time.monotonic() - start, cache=cache_backend, cached=True)
-                        return stale_entry.value
-
-                    if fallback is not None:
-                        result = await _call_fallback(fallback, kwargs=kwargs, error=exc, stale_entry=stale_entry)
-                        logger.warning("tool_fallback", tool=tool_name, reason=str(exc))
-                        metrics.record_tool_result(tool=tool_name, status="fallback", duration_s=time.monotonic() - start, cache=cache_backend, cached=False)
-                        return result
-
-                    ms = (time.monotonic() - start) * 1000
-                    logger.error("tool_failed", tool=tool_name, duration_ms=round(ms, 2))
-                    metrics.record_tool_result(tool=tool_name, status="failed", duration_s=time.monotonic() - start, cache=cache_backend, cached=False)
-                    raise
-
-                finally:
-                    if breaker is not None:
-                        breaker.finish_attempt()
-
-                if cache_backend and result is not None:
-                    try:
-                        await cache_manager.set(cache_backend, key, result, cache_ttl, tags=entry_tags, stale_ttl=stale_ttl)
-
-                    except Exception as exc:
-                        logger.warning("cache_write_error", tool=tool_name, error=str(exc))
-
-                ms = (time.monotonic() - start) * 1000
-                logger.info("tool_success", tool=tool_name, duration_ms=round(ms, 2), cached=False)
-                metrics.record_tool_result(tool=tool_name, status="success", duration_s=time.monotonic() - start, cache=cache_backend, cached=False)
-                return result
+                return await _executor.execute(ctx, func)
 
         if asyncio.iscoroutinefunction(func):
             @functools.wraps(func)
@@ -350,6 +312,7 @@ def readonly(
     cache_ttl: int = 3600,
     cache_key_params: list[str] | None = None,
     cache_tags: list[str] | Callable[[dict[str, Any]], list[str]] | None = None,
+    sensitive_params: list[str] | None = None,
     stale_if_error: bool = False,
     stale_ttl: int | None = None,
     coalesce: bool = False,
@@ -391,6 +354,7 @@ def readonly(
         cache_ttl=cache_ttl,
         cache_key_params=cache_key_params,
         cache_tags=cache_tags,
+        sensitive_params=sensitive_params,
         stale_if_error=stale_if_error,
         stale_ttl=stale_ttl,
         coalesce=coalesce,
@@ -410,6 +374,7 @@ def sideeffect(
     retry_count: int = 0,
     retry_delay: float = 1.0,
     fallback: Callable[..., Any] | Any | None = None,
+    sensitive_params: list[str] | None = None,
     circuit_breaker: bool = False,
     circuit_failure_threshold: int = 5,
     circuit_recovery_timeout: float = 30.0,
@@ -423,6 +388,7 @@ def sideeffect(
         retry_count: Retries.
         retry_delay: Delay.
         fallback: Fallback handler.
+        sensitive_params: Param names to exclude from cache key and logs.
         circuit_breaker: Breaker enable.
         circuit_failure_threshold: Threshold.
         circuit_recovery_timeout: Recovery.
@@ -438,6 +404,7 @@ def sideeffect(
         retry_count=retry_count,
         retry_delay=retry_delay,
         fallback=fallback,
+        sensitive_params=sensitive_params,
         circuit_breaker=circuit_breaker,
         circuit_failure_threshold=circuit_failure_threshold,
         circuit_recovery_timeout=circuit_recovery_timeout,
@@ -450,6 +417,7 @@ def stateful(
     cache_ttl: int = 1800,
     cache_key_params: list[str] | None = None,
     cache_tags: list[str] | Callable[[dict[str, Any]], list[str]] | None = None,
+    sensitive_params: list[str] | None = None,
     stale_if_error: bool = False,
     stale_ttl: int | None = None,
     timeout: float | None = None,
@@ -469,6 +437,7 @@ def stateful(
         cache_ttl: TTL seconds.
         cache_key_params: Params for key.
         cache_tags: Tags for invalidation.
+        sensitive_params: Param names to exclude from cache key and logs.
         stale_if_error: Serve stale on error.
         stale_ttl: Stale window.
         timeout: Execution timeout.
@@ -489,6 +458,7 @@ def stateful(
         cache_ttl=cache_ttl,
         cache_key_params=cache_key_params,
         cache_tags=cache_tags,
+        sensitive_params=sensitive_params,
         stale_if_error=stale_if_error,
         stale_ttl=stale_ttl,
         timeout=timeout,
