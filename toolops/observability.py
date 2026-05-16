@@ -14,11 +14,10 @@ Note: This project is open source for knowledge sharing
 
 from __future__ import annotations
 
-from typing import Any
-from dataclasses import dataclass
-from contextlib import nullcontext
 from collections import defaultdict
-
+from contextlib import nullcontext
+from dataclasses import dataclass
+from typing import Any
 
 DEFAULT_BUCKETS = (
     0.005,
@@ -67,7 +66,7 @@ def _render_labels(labels: tuple[tuple[str, str], ...]) -> str:
     return "{" + ",".join(parts) + "}"
 
 
-@dataclass(slots=True)
+@dataclass
 class HistogramSnapshot:
     """Data class representing a histogram snapshot."""
 
@@ -79,15 +78,19 @@ class HistogramSnapshot:
 class PrometheusMetrics:
     """Internal Prometheus metrics registry and renderer."""
 
-
     def __init__(self) -> None:
         """Initialize the metrics registry."""
 
-        self._counters: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(dict)
-        self._gauges: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(dict)
-        self._histograms: dict[str, dict[tuple[tuple[str, str], ...], HistogramSnapshot]] = defaultdict(dict)
+        self._counters: dict[str, dict[tuple[tuple[str, str], ...], float]] = (
+            defaultdict(dict)
+        )
+        self._gauges: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(
+            dict
+        )
+        self._histograms: dict[
+            str, dict[tuple[tuple[str, str], ...], HistogramSnapshot]
+        ] = defaultdict(dict)
         self._metadata: dict[str, tuple[str, str]] = {}
-
 
     def reset(self) -> None:
         """Reset all stored metrics and metadata."""
@@ -97,8 +100,14 @@ class PrometheusMetrics:
         self._histograms.clear()
         self._metadata.clear()
 
-
-    def counter(self, name: str, description: str, *, value: float = 1.0, labels: dict[str, Any] | None = None) -> None:
+    def counter(
+        self,
+        name: str,
+        description: str,
+        *,
+        value: float = 1.0,
+        labels: dict[str, Any] | None = None,
+    ) -> None:
         """
         Increment a counter metric.
 
@@ -114,8 +123,14 @@ class PrometheusMetrics:
         series = self._counters[name]
         series[label_key] = series.get(label_key, 0.0) + value
 
-
-    def gauge(self, name: str, description: str, *, value: float, labels: dict[str, Any] | None = None) -> None:
+    def gauge(
+        self,
+        name: str,
+        description: str,
+        *,
+        value: float,
+        labels: dict[str, Any] | None = None,
+    ) -> None:
         """
         Set a gauge metric value.
 
@@ -130,8 +145,15 @@ class PrometheusMetrics:
         self._metadata[name] = ("gauge", description)
         self._gauges[name][label_key] = value
 
-
-    def histogram(self, name: str, description: str, *, value: float, labels: dict[str, Any] | None = None, buckets: tuple[float, ...] = DEFAULT_BUCKETS) -> None:
+    def histogram(
+        self,
+        name: str,
+        description: str,
+        *,
+        value: float,
+        labels: dict[str, Any] | None = None,
+        buckets: tuple[float, ...] = DEFAULT_BUCKETS,
+    ) -> None:
         """
         Observe a value in a histogram.
 
@@ -148,7 +170,7 @@ class PrometheusMetrics:
         series = self._histograms[name]
         snapshot = series.get(label_key)
         if snapshot is None:
-            snapshot = HistogramSnapshot(buckets={bucket: 0 for bucket in buckets})
+            snapshot = HistogramSnapshot(buckets=dict.fromkeys(buckets, 0))
             series[label_key] = snapshot
 
         snapshot.count += 1
@@ -157,7 +179,6 @@ class PrometheusMetrics:
         for bucket in buckets:
             if value <= bucket:
                 snapshot.buckets[bucket] += 1
-
 
     def render(self) -> str:
         """
@@ -193,10 +214,14 @@ class PrometheusMetrics:
                 for bucket, count in sorted(snapshot.buckets.items()):
                     cumulative += count
                     bucket_labels = labels + (("le", str(bucket)),)
-                    lines.append(f"{name}_bucket{_render_labels(bucket_labels)} {cumulative}")
+                    lines.append(
+                        f"{name}_bucket{_render_labels(bucket_labels)} {cumulative}"
+                    )
 
                 inf_labels = labels + (("le", "+Inf"),)
-                lines.append(f"{name}_bucket{_render_labels(inf_labels)} {snapshot.count}")
+                lines.append(
+                    f"{name}_bucket{_render_labels(inf_labels)} {snapshot.count}"
+                )
                 lines.append(f"{name}_count{_render_labels(labels)} {snapshot.count}")
                 lines.append(f"{name}_sum{_render_labels(labels)} {snapshot.total}")
 
@@ -206,12 +231,10 @@ class PrometheusMetrics:
 class OpenTelemetryBridge:
     """Bridge for OpenTelemetry tracing support."""
 
-
     def __init__(self) -> None:
         """Initialize the OpenTelemetry bridge."""
 
         self._tracer: Any = None
-
 
     def configure(self, tracer: Any | None = None) -> None:
         """
@@ -227,11 +250,11 @@ class OpenTelemetryBridge:
 
         try:
             from opentelemetry import trace  # type: ignore[import]
+
             self._tracer = trace.get_tracer("toolops")
 
         except ImportError:
             self._tracer = None
-
 
     def start_span(self, name: str, *, attributes: dict[str, Any] | None = None) -> Any:
         """
@@ -253,7 +276,6 @@ class OpenTelemetryBridge:
 class _SpanContext:
     """Context manager for OpenTelemetry spans."""
 
-
     def __init__(self, tracer: Any, name: str, attributes: dict[str, Any]) -> None:
         """
         Initialize the span context.
@@ -267,7 +289,6 @@ class _SpanContext:
         self._context = tracer.start_as_current_span(name)
         self._attributes = attributes
         self._span: Any = None
-
 
     def __enter__(self) -> Any:
         """
@@ -283,7 +304,6 @@ class _SpanContext:
                 self._span.set_attribute(name, value)
 
         return self._span
-
 
     def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
         """
@@ -304,20 +324,17 @@ class _SpanContext:
 class ToolOpsMetrics:
     """Central coordinator for ToolOps observability."""
 
-
     def __init__(self) -> None:
         """Initialize ToolOps metrics and tracing bridge."""
 
         self._prometheus = PrometheusMetrics()
         self._otel = OpenTelemetryBridge()
 
-
     @property
     def otel(self) -> OpenTelemetryBridge:
         """Access the OpenTelemetry bridge."""
 
         return self._otel
-
 
     def configure_opentelemetry(self, tracer: Any | None = None) -> None:
         """
@@ -328,7 +345,6 @@ class ToolOpsMetrics:
         """
 
         self._otel.configure(tracer)
-
 
     def record_tool_start(self, *, tool: str, cache: str | None) -> None:
         """
@@ -345,8 +361,15 @@ class ToolOpsMetrics:
             labels={"tool": tool, "status": "started", "cache": cache or "none"},
         )
 
-
-    def record_tool_result(self, *, tool: str, status: str, duration_s: float, cache: str | None, cached: bool) -> None:
+    def record_tool_result(
+        self,
+        *,
+        tool: str,
+        status: str,
+        duration_s: float,
+        cache: str | None,
+        cached: bool,
+    ) -> None:
         """
         Record the result of a tool call.
 
@@ -382,8 +405,9 @@ class ToolOpsMetrics:
             },
         )
 
-
-    def record_cache_hit(self, *, tool: str, cache: str, hit_kind: str = "fresh") -> None:
+    def record_cache_hit(
+        self, *, tool: str, cache: str, hit_kind: str = "fresh"
+    ) -> None:
         """
         Record a cache hit.
 
@@ -399,7 +423,6 @@ class ToolOpsMetrics:
             labels={"tool": tool, "cache": cache, "kind": hit_kind},
         )
 
-
     def record_retry(self, *, tool: str) -> None:
         """
         Record a tool execution retry.
@@ -413,7 +436,6 @@ class ToolOpsMetrics:
             "Total ToolOps retries.",
             labels={"tool": tool},
         )
-
 
     def record_invalidation(self, *, cache: str, count: int) -> None:
         """
@@ -430,7 +452,6 @@ class ToolOpsMetrics:
             value=float(count),
             labels={"cache": cache},
         )
-
 
     def record_circuit_state(self, *, tool: str, state: str) -> None:
         """
@@ -453,7 +474,6 @@ class ToolOpsMetrics:
                 labels={"tool": tool, "state": name},
             )
 
-
     def render_prometheus(self) -> str:
         """
         Render all metrics in Prometheus format.
@@ -463,7 +483,6 @@ class ToolOpsMetrics:
         """
 
         return self._prometheus.render()
-
 
     def reset(self) -> None:
         """Reset all ToolOps metrics."""

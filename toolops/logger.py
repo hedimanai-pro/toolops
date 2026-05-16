@@ -14,16 +14,15 @@ Note: This project is open source for knowledge sharing
 
 from __future__ import annotations
 
-import sys
 import json
 import logging
-from typing import Any
+import sys
 from datetime import datetime, timezone
+from typing import Any
 
 
 class ToolOpsLogger:
     """Structured JSON logger for observability."""
-
 
     def __init__(self, name: str = "toolops", level: str = "INFO") -> None:
         """
@@ -42,7 +41,6 @@ class ToolOpsLogger:
             handler.setFormatter(logging.Formatter("%(message)s"))
             self._logger.addHandler(handler)
 
-
     def info(self, event: str, **kw: Any) -> None:
         """
         Log an INFO level event.
@@ -53,7 +51,6 @@ class ToolOpsLogger:
         """
 
         self._emit("INFO", event, **kw)
-
 
     def warning(self, event: str, **kw: Any) -> None:
         """
@@ -66,7 +63,6 @@ class ToolOpsLogger:
 
         self._emit("WARNING", event, **kw)
 
-
     def error(self, event: str, **kw: Any) -> None:
         """
         Log an ERROR level event.
@@ -78,7 +74,6 @@ class ToolOpsLogger:
 
         self._emit("ERROR", event, **kw)
 
-
     def debug(self, event: str, **kw: Any) -> None:
         """
         Log a DEBUG level event.
@@ -89,7 +84,6 @@ class ToolOpsLogger:
         """
 
         self._emit("DEBUG", event, **kw)
-
 
     def _emit(self, level: str, event: str, **kw: Any) -> None:
         """

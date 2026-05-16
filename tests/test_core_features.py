@@ -18,8 +18,8 @@ import asyncio
 
 import pytest
 
-from toolops.cache import MemoryCache
 from toolops import build_cache_key, cache_manager, readonly, sideeffect
+from toolops.cache import MemoryCache
 
 
 @pytest.mark.asyncio
@@ -44,7 +44,9 @@ async def test_stale_if_error_returns_last_good_value():
     assert second == first
     assert calls == 2
 
-    entry = await cache_manager.inspect("memory", build_cache_key("flaky_profile", {"user_id": "alice"}, None))
+    entry = await cache_manager.inspect(
+        "memory", build_cache_key("flaky_profile", {"user_id": "alice"}, None)
+    )
     assert entry is not None
     assert entry["state"] == "stale"
 
@@ -106,7 +108,11 @@ async def test_invalidate_by_tags_only_evicts_matching_entries():
     cache_manager.register("memory", MemoryCache(), is_default=True)
     calls = 0
 
-    @readonly(cache_backend="memory", cache_ttl=60, cache_tags=lambda kwargs: [f"user:{kwargs['user_id']}", "profile"])
+    @readonly(
+        cache_backend="memory",
+        cache_ttl=60,
+        cache_tags=lambda kwargs: [f"user:{kwargs['user_id']}", "profile"],
+    )
     async def load_profile(user_id: str) -> dict[str, int | str]:
         nonlocal calls
         calls += 1

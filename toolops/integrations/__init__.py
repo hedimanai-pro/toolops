@@ -12,12 +12,11 @@ LinkedIn: https://www.linkedin.com/in/hedimanai
 Note: This project is open source for knowledge sharing
 """
 
-from toolops.integrations.mcp import MCPIntegration
 from toolops.integrations.crewai import as_crewai_tool
 from toolops.integrations.langchain import as_langchain_tool
 from toolops.integrations.langgraph import bind_langgraph_node
 from toolops.integrations.llamaindex import as_llamaindex_tool
-
+from toolops.integrations.mcp import MCPIntegration
 
 __all__ = [
     "as_langchain_tool",

@@ -14,27 +14,29 @@ Note: This project is open source for knowledge sharing
 
 from __future__ import annotations
 
-import json
-import time
 import asyncio
-import inspect
-import hashlib
 import functools
+import hashlib
+import inspect
+import json
 from typing import Any, Callable
 
-from toolops.logger import logger
-from toolops.observability import metrics
+from toolops.cache import CacheEntry
 from toolops.coalescer import RequestCoalescer
-from toolops.cache import CacheEntry, cache_manager
-from toolops.resilience import CircuitBreaker, CircuitOpenError
 from toolops.middlewares import ToolContext, build_executor
-
+from toolops.observability import metrics
+from toolops.resilience import CircuitBreaker
 
 _coalescer = RequestCoalescer()
 _circuit_breakers: dict[str, CircuitBreaker] = {}
 
 
-def _cache_key(name: str, kwargs: dict[str, Any], key_params: list[str] | None, sensitive_params: list[str] | None = None) -> str:
+def _cache_key(
+    name: str,
+    kwargs: dict[str, Any],
+    key_params: list[str] | None,
+    sensitive_params: list[str] | None = None,
+) -> str:
     """
     Generate a stable, SHA-256 hashed cache key for a tool call.
 
@@ -54,7 +56,9 @@ def _cache_key(name: str, kwargs: dict[str, Any], key_params: list[str] | None, 
     sensitive = set(sensitive_params or [])
 
     if key_params:
-        pairs = [[p, kwargs[p]] for p in key_params if p in kwargs and p not in sensitive]
+        pairs = [
+            [p, kwargs[p]] for p in key_params if p in kwargs and p not in sensitive
+        ]
     else:
         pairs = [[k, v] for k, v in sorted(kwargs.items()) if k not in sensitive]
 
@@ -66,11 +70,24 @@ build_cache_key = _cache_key
 
 
 # Parameter names commonly containing sensitive data — auto-masked in logs.
-_SENSITIVE_PARAM_NAMES = frozenset({
-    "token", "api_key", "apikey", "password", "secret", "auth",
-    "authorization", "key", "credential", "credentials",
-    "access_token", "refresh_token", "private_key", "bearer",
-})
+_SENSITIVE_PARAM_NAMES = frozenset(
+    {
+        "token",
+        "api_key",
+        "apikey",
+        "password",
+        "secret",
+        "auth",
+        "authorization",
+        "key",
+        "credential",
+        "credentials",
+        "access_token",
+        "refresh_token",
+        "private_key",
+        "bearer",
+    }
+)
 
 
 def _mask_sensitive_params(kwargs: dict[str, Any]) -> dict[str, Any]:
@@ -97,7 +114,9 @@ def _mask_sensitive_params(kwargs: dict[str, Any]) -> dict[str, Any]:
     return masked
 
 
-def _bind(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]) -> dict[str, Any]:
+def _bind(
+    func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any]
+) -> dict[str, Any]:
     """
     Bind positional and keyword arguments to function parameters.
 
@@ -120,7 +139,11 @@ def _bind(func: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any
     return merged
 
 
-def _resolve_cache_tags(tool_name: str, kwargs: dict[str, Any], cache_tags: list[str] | Callable[[dict[str, Any]], list[str]] | None) -> list[str]:
+def _resolve_cache_tags(
+    tool_name: str,
+    kwargs: dict[str, Any],
+    cache_tags: list[str] | Callable[[dict[str, Any]], list[str]] | None,
+) -> list[str]:
     """
     Resolve cache tags from static list or dynamic function.
 
@@ -137,7 +160,9 @@ def _resolve_cache_tags(tool_name: str, kwargs: dict[str, Any], cache_tags: list
     return sorted({f"tool:{tool_name}", *[str(tag) for tag in dynamic_tags]})
 
 
-def _breaker_for(tool_name: str, *, failure_threshold: int, recovery_timeout: float) -> CircuitBreaker:
+def _breaker_for(
+    tool_name: str, *, failure_threshold: int, recovery_timeout: float
+) -> CircuitBreaker:
     """
     Get or create a circuit breaker for a tool.
 
@@ -153,13 +178,23 @@ def _breaker_for(tool_name: str, *, failure_threshold: int, recovery_timeout: fl
     breaker = _circuit_breakers.get(tool_name)
 
     if breaker is None:
-        breaker = CircuitBreaker(tool_name, failure_threshold=failure_threshold, recovery_timeout=recovery_timeout)
+        breaker = CircuitBreaker(
+            tool_name,
+            failure_threshold=failure_threshold,
+            recovery_timeout=recovery_timeout,
+        )
         _circuit_breakers[tool_name] = breaker
 
     return breaker
 
 
-async def _call_fallback(fallback: Callable[..., Any] | Any, *, kwargs: dict[str, Any], error: Exception, stale_entry: CacheEntry | None) -> Any:
+async def _call_fallback(
+    fallback: Callable[..., Any] | Any,
+    *,
+    kwargs: dict[str, Any],
+    error: Exception,
+    stale_entry: CacheEntry | None,
+) -> Any:
     """
     Execute fallback handler with appropriate context.
 
@@ -178,7 +213,10 @@ async def _call_fallback(fallback: Callable[..., Any] | Any, *, kwargs: dict[str
 
     signature = inspect.signature(fallback)
     call_kwargs: dict[str, Any] = {}
-    accepts_var_kw = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values())
+    accepts_var_kw = any(
+        param.kind == inspect.Parameter.VAR_KEYWORD
+        for param in signature.parameters.values()
+    )
 
     if accepts_var_kw:
         call_kwargs.update(kwargs)
@@ -253,7 +291,15 @@ def tool(
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         tool_name = name or func.__name__
         tool_tags = tags or []
-        breaker = _breaker_for(tool_name, failure_threshold=circuit_failure_threshold, recovery_timeout=circuit_recovery_timeout) if circuit_breaker else None
+        breaker = (
+            _breaker_for(
+                tool_name,
+                failure_threshold=circuit_failure_threshold,
+                recovery_timeout=circuit_recovery_timeout,
+            )
+            if circuit_breaker
+            else None
+        )
 
         # Build the middleware pipeline for this tool (v0.2.0 — refactored from monolithic)
         _executor = build_executor()
@@ -281,13 +327,21 @@ def tool(
                 kwargs=kwargs,
             )
 
-            with metrics.otel.start_span(f"toolops.{tool_name}", attributes={"toolops.tool": tool_name, "toolops.cache_backend": cache_backend or "none"}):
+            with metrics.otel.start_span(
+                f"toolops.{tool_name}",
+                attributes={
+                    "toolops.tool": tool_name,
+                    "toolops.cache_backend": cache_backend or "none",
+                },
+            ):
                 return await _executor.execute(ctx, func)
 
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
                 return await _run(**_bind(func, args, kwargs))
+
             return async_wrapper
 
         @functools.wraps(func)
@@ -299,7 +353,9 @@ def tool(
                 loop = None
 
             if loop and loop.is_running():
-                return asyncio.run_coroutine_threadsafe(_run(**_bind(func, args, kwargs)), loop).result()
+                return asyncio.run_coroutine_threadsafe(
+                    _run(**_bind(func, args, kwargs)), loop
+                ).result()
 
             return asyncio.run(_run(**_bind(func, args, kwargs)))
 

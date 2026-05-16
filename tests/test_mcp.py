@@ -12,7 +12,6 @@ LinkedIn: https://www.linkedin.com/in/hedimanai
 Note: This project is open source for knowledge sharing
 """
 
-import pytest
 
 from toolops import readonly
 from toolops.integrations.mcp import MCPIntegration

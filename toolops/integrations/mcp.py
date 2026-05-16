@@ -21,7 +21,6 @@ from typing import Any, Callable, Dict
 class MCPIntegration:
     """Helper to integrate ToolOps tools with MCP."""
 
-
     @staticmethod
     def to_mcp_definition(func: Callable[..., Any]) -> Dict[str, Any]:
         """
@@ -43,19 +42,19 @@ class MCPIntegration:
 
         for name, param in sig.parameters.items():
             param_type = "string"
-            if param.annotation == int:
+            if param.annotation is int:
                 param_type = "integer"
 
-            elif param.annotation == float:
+            elif param.annotation is float:
                 param_type = "number"
 
-            elif param.annotation == bool:
+            elif param.annotation is bool:
                 param_type = "boolean"
 
-            elif param.annotation == dict:
+            elif param.annotation is dict:
                 param_type = "object"
 
-            elif param.annotation == list:
+            elif param.annotation is list:
                 param_type = "array"
 
             properties[name] = {"type": param_type}
@@ -71,7 +70,6 @@ class MCPIntegration:
                 "required": required,
             },
         }
-
 
     @staticmethod
     def wrap_mcp_handler(func: Callable[..., Any]) -> Callable[..., Any]:

@@ -1,8 +1,13 @@
+
 import pytest
-import asyncio
-from unittest.mock import AsyncMock, MagicMock
-from toolops.middlewares import ToolContext, ToolExecutor, LoggingMiddleware, RetryMiddleware, FallbackMiddleware
-from toolops.resilience import CircuitBreaker
+
+from toolops.middlewares import (
+    FallbackMiddleware,
+    RetryMiddleware,
+    ToolContext,
+    ToolExecutor,
+)
+
 
 @pytest.mark.asyncio
 async def test_tool_executor_pipeline_execution():
@@ -20,9 +25,9 @@ async def test_tool_executor_pipeline_execution():
         fallback=None,
         circuit_breaker=False,
         tags=["unit-test"],
-        kwargs={"x": 1}
+        kwargs={"x": 1},
     )
-    
+
     # Simple middleware that adds to context
     class TraceMiddleware:
         async def process(self, ctx, call_next):
@@ -30,12 +35,13 @@ async def test_tool_executor_pipeline_execution():
             return await call_next()
 
     executor = ToolExecutor([TraceMiddleware()])
-    
+
     async def tool_func(x, traced=False):
         return x + 1 if traced else x
-    
+
     result = await executor.execute(ctx, tool_func)
     assert result == 2
+
 
 @pytest.mark.asyncio
 async def test_retry_middleware_logic():
@@ -53,29 +59,32 @@ async def test_retry_middleware_logic():
         fallback=None,
         circuit_breaker=False,
         tags=[],
-        kwargs={}
+        kwargs={},
     )
-    
+
     calls = 0
+
     async def flaky():
         nonlocal calls
         calls += 1
         if calls < 3:
             raise ValueError("try again")
         return "success"
-    
+
     executor = ToolExecutor([RetryMiddleware()])
     result = await executor.execute(ctx, flaky)
-    
+
     assert result == "success"
     assert calls == 3
+
 
 @pytest.mark.asyncio
 async def test_fallback_middleware_executes_callable():
     """Test that fallback middleware calls the fallback function."""
+
     async def my_fallback(error):
         return f"caught {type(error).__name__}"
-        
+
     ctx = ToolContext(
         tool_name="fail_tool",
         cache_backend=None,
@@ -89,40 +98,51 @@ async def test_fallback_middleware_executes_callable():
         fallback=my_fallback,
         circuit_breaker=False,
         tags=[],
-        kwargs={}
+        kwargs={},
     )
-    
+
     async def fail():
         raise RuntimeError("boom")
-        
+
     executor = ToolExecutor([FallbackMiddleware()])
     result = await executor.execute(ctx, fail)
-    
+
     assert result == "caught RuntimeError"
+
 
 @pytest.mark.asyncio
 async def test_cache_middleware_stale_if_error():
     """Test stale-if-error logic in CacheMiddleware."""
+    from toolops.cache import CacheEntry, MemoryCache, cache_manager
     from toolops.middlewares import CacheMiddleware
-    from toolops.cache import MemoryCache, cache_manager, CacheEntry
-    
+
     cache = MemoryCache()
     cache_manager.register("m2", cache)
-    
+
     # Pre-seed stale entry
     entry = CacheEntry.create("k1", "stale_val", ttl=-10, stale_ttl=60)
     await cache.set("k1", "stale_val", ttl=-10, stale_ttl=60)
-    
+
     ctx = ToolContext(
-        tool_name="stale_tool", cache_backend="m2", key="k1",
-        cache_ttl=60, stale_if_error=True, stale_ttl=60,
-        coalesce=False, timeout=None, retry_count=0, retry_delay=0,
-        fallback=None, circuit_breaker=False, tags=[], kwargs={}
+        tool_name="stale_tool",
+        cache_backend="m2",
+        key="k1",
+        cache_ttl=60,
+        stale_if_error=True,
+        stale_ttl=60,
+        coalesce=False,
+        timeout=None,
+        retry_count=0,
+        retry_delay=0,
+        fallback=None,
+        circuit_breaker=False,
+        tags=[],
+        kwargs={},
     )
-    
+
     async def failing_tool():
         raise ValueError("dead")
-        
+
     executor = ToolExecutor([CacheMiddleware()])
     # Should return stale value instead of raising
     result = await executor.execute(ctx, failing_tool)

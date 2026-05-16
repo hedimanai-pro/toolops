@@ -14,8 +14,8 @@ Note: This project is open source for knowledge sharing
 
 import os
 import tempfile
-from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timedelta, timezone
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -67,10 +67,7 @@ async def test_postgres_cache_mocked():
     value = {"hello": "world"}
 
     expires_at = datetime.now(timezone.utc) + timedelta(seconds=60)
-    mock_conn.fetchrow.return_value = {
-        "value": value,
-        "expires_at": expires_at
-    }
+    mock_conn.fetchrow.return_value = {"value": value, "expires_at": expires_at}
 
     # Get
     result = await cache.get(key)
@@ -99,7 +96,9 @@ async def test_semantic_cache_logic():
     """Test semantic similarity matching with mocked embedder."""
 
     mock_embedder = AsyncMock()
-    mock_embedder.embed.side_effect = lambda text: [1.0, 0.0] if "password" in text else [0.0, 1.0]
+    mock_embedder.embed.side_effect = lambda text: (
+        [1.0, 0.0] if "password" in text else [0.0, 1.0]
+    )
 
     cache = SemanticCache(embedder=mock_embedder, threshold=0.9)
 
@@ -113,11 +112,11 @@ async def test_semantic_cache_logic():
 
     assert res == "Instructions"
     assert mock_embedder.embed.call_count == 2
-    
+
     # Clear
     await cache.clear()
     assert len(cache._entries) == 0
-    
+
     # Stats
     stats = await cache.stats()
     assert stats["backend"] == "semantic"
@@ -126,14 +125,14 @@ async def test_semantic_cache_logic():
 def test_cache_entry_serialization():
     """Test that CacheEntry can be converted to/from payload correctly."""
     from toolops.cache import CacheEntry
-    
+
     entry = CacheEntry.create("k1", {"data": 1}, ttl=60, tags=["t1"])
     payload = entry.payload()
-    
+
     assert payload["key"] == "k1"
     assert payload["value"]["data"] == 1
     assert "t1" in payload["tags"]
-    
+
     # Reconstruct
     new_entry = CacheEntry.from_payload("k1", payload)
     assert new_entry.value == entry.value
@@ -145,16 +144,17 @@ def test_cache_entry_serialization():
 async def test_memory_cache_stats_and_clear():
     """Test MemoryCache stats tracking and clear operation."""
     from toolops.cache import MemoryCache
+
     cache = MemoryCache()
-    
+
     await cache.set("k1", "v1", ttl=60)
     await cache.get("k1")  # Hit
     await cache.get("k2")  # Miss
-    
+
     stats = await cache.stats()
     assert stats["hits"] == 1
     assert stats["misses"] == 1
     assert stats["size"] == 1
-    
+
     await cache.clear()
     assert len(cache._store) == 0

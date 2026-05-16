@@ -15,13 +15,12 @@ Note: This project is open source for knowledge sharing
 from __future__ import annotations
 
 import time
-from threading import Lock
 from dataclasses import dataclass
+from threading import Lock
 
 
 class CircuitOpenError(RuntimeError):
     """Exception raised when the circuit is open."""
-
 
     def __init__(self, tool: str, retry_after: float) -> None:
         """
@@ -34,10 +33,12 @@ class CircuitOpenError(RuntimeError):
 
         self.tool = tool
         self.retry_after = retry_after
-        super().__init__(f"Circuit for '{tool}' is open. Retry after {retry_after:.2f}s.")
+        super().__init__(
+            f"Circuit for '{tool}' is open. Retry after {retry_after:.2f}s."
+        )
 
 
-@dataclass(slots=True)
+@dataclass
 class CircuitSnapshot:
     """Snapshot of current circuit state."""
 
@@ -49,8 +50,9 @@ class CircuitSnapshot:
 class CircuitBreaker:
     """Thread-safe circuit breaker implementation."""
 
-
-    def __init__(self, tool: str, *, failure_threshold: int = 5, recovery_timeout: float = 30.0) -> None:
+    def __init__(
+        self, tool: str, *, failure_threshold: int = 5, recovery_timeout: float = 30.0
+    ) -> None:
         """
         Initialize the circuit breaker.
 
@@ -69,7 +71,6 @@ class CircuitBreaker:
         self._half_open_in_flight = False
         self._lock = Lock()
 
-
     @property
     def state(self) -> str:
         """
@@ -80,7 +81,6 @@ class CircuitBreaker:
         """
 
         return self.snapshot().state
-
 
     def snapshot(self) -> CircuitSnapshot:
         """
@@ -96,7 +96,6 @@ class CircuitBreaker:
                 failures=self._failures,
                 opened_at=self._opened_at,
             )
-
 
     def before_call(self) -> None:
         """
@@ -126,7 +125,6 @@ class CircuitBreaker:
                     raise CircuitOpenError(self._tool, self._recovery_timeout)
                 self._half_open_in_flight = True
 
-
     def record_success(self) -> None:
         """Record a successful tool execution."""
 
@@ -135,7 +133,6 @@ class CircuitBreaker:
             self._failures = 0
             self._opened_at = None
             self._half_open_in_flight = False
-
 
     def record_failure(self) -> None:
         """Record a failed tool execution."""
@@ -154,7 +151,6 @@ class CircuitBreaker:
                 self._state = "open"
                 self._opened_at = now
                 self._half_open_in_flight = False
-
 
     def finish_attempt(self) -> None:
         """Cleanup after a tool execution attempt."""

@@ -21,12 +21,10 @@ from typing import Any, Callable
 class RequestCoalescer:
     """Collapses concurrent calls with the same key into a single execution."""
 
-
     def __init__(self) -> None:
         """Initialize the pending requests store."""
 
         self._pending: dict[str, asyncio.Future[Any]] = {}
-
 
     async def execute(self, key: str, func: Callable[..., Any], **kwargs: Any) -> Any:
         """

@@ -17,17 +17,17 @@ Note: This project is open source for knowledge sharing
 
 from __future__ import annotations
 
-import time
 import asyncio
 import inspect
-from typing import Any, Callable
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
+from typing import Any, Callable
 
+from toolops.cache import CacheEntry, cache_manager
+from toolops.coalescer import RequestCoalescer
 from toolops.logger import logger
 from toolops.observability import metrics
-from toolops.coalescer import RequestCoalescer
-from toolops.cache import CacheEntry, cache_manager
 from toolops.resilience import CircuitBreaker, CircuitOpenError
 
 
@@ -94,9 +94,11 @@ class FallbackMiddleware(Middleware):
             result = await self._execute_fallback(ctx, exc)
             logger.warning("tool_fallback", tool=ctx.tool_name, reason=str(exc))
             metrics.record_tool_result(
-                tool=ctx.tool_name, status="fallback",
+                tool=ctx.tool_name,
+                status="fallback",
                 duration_s=time.monotonic() - ctx.start,
-                cache=ctx.cache_backend, cached=False,
+                cache=ctx.cache_backend,
+                cached=False,
             )
             return result
 
@@ -107,12 +109,17 @@ class FallbackMiddleware(Middleware):
 
         signature = inspect.signature(fallback)
         call_kwargs: dict[str, Any] = {}
-        accepts_var_kw = any(param.kind == inspect.Parameter.VAR_KEYWORD for param in signature.parameters.values())
+        accepts_var_kw = any(
+            param.kind == inspect.Parameter.VAR_KEYWORD
+            for param in signature.parameters.values()
+        )
 
         if accepts_var_kw:
             call_kwargs.update(ctx.kwargs)
             call_kwargs["error"] = error
-            call_kwargs["stale_value"] = ctx.stale_entry.value if ctx.stale_entry else None
+            call_kwargs["stale_value"] = (
+                ctx.stale_entry.value if ctx.stale_entry else None
+            )
 
         else:
             for name in signature.parameters:
@@ -123,7 +130,9 @@ class FallbackMiddleware(Middleware):
                     call_kwargs[name] = error
 
                 elif name == "stale_value":
-                    call_kwargs[name] = ctx.stale_entry.value if ctx.stale_entry else None
+                    call_kwargs[name] = (
+                        ctx.stale_entry.value if ctx.stale_entry else None
+                    )
 
         result = fallback(**call_kwargs)
         if inspect.isawaitable(result):
@@ -142,13 +151,20 @@ class LoggingMiddleware(Middleware):
         try:
             result = await call_next()
             ms = (time.monotonic() - ctx.start) * 1000
-            logger.info("tool_success", tool=ctx.tool_name, duration_ms=round(ms, 2), cached=False)
+            logger.info(
+                "tool_success",
+                tool=ctx.tool_name,
+                duration_ms=round(ms, 2),
+                cached=False,
+            )
             # Record success metrics only if not already recorded by CacheMiddleware
             if not ctx.result_recorded:
                 metrics.record_tool_result(
-                    tool=ctx.tool_name, status="success",
+                    tool=ctx.tool_name,
+                    status="success",
                     duration_s=time.monotonic() - ctx.start,
-                    cache=ctx.cache_backend, cached=False,
+                    cache=ctx.cache_backend,
+                    cached=False,
                 )
             return result
 
@@ -176,7 +192,9 @@ class CacheMiddleware(Middleware):
                 return cached
 
             if ctx.stale_if_error:
-                ctx.stale_entry = await cache_manager.get_entry(cache, ctx.key, allow_stale=True)
+                ctx.stale_entry = await cache_manager.get_entry(
+                    cache, ctx.key, allow_stale=True
+                )
 
         except Exception as exc:
             logger.warning("cache_read_error", tool=ctx.tool_name, error=str(exc))
@@ -196,7 +214,14 @@ class CacheMiddleware(Middleware):
         # --- Cache write ---
         if result is not None:
             try:
-                await cache_manager.set(cache, ctx.key, result, ctx.cache_ttl, tags=ctx.entry_tags, stale_ttl=ctx.stale_ttl)
+                await cache_manager.set(
+                    cache,
+                    ctx.key,
+                    result,
+                    ctx.cache_ttl,
+                    tags=ctx.entry_tags,
+                    stale_ttl=ctx.stale_ttl,
+                )
 
             except Exception as exc:
                 logger.warning("cache_write_error", tool=ctx.tool_name, error=str(exc))
@@ -205,21 +230,40 @@ class CacheMiddleware(Middleware):
 
     def _record_hit(self, ctx: ToolContext, hit_kind: str) -> None:
         ms = (time.monotonic() - ctx.start) * 1000
-        logger.info("cache_hit", tool=ctx.tool_name, cache=ctx.cache_backend, duration_ms=round(ms, 2), stale=False)
-        metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend, hit_kind=hit_kind)
+        logger.info(
+            "cache_hit",
+            tool=ctx.tool_name,
+            cache=ctx.cache_backend,
+            duration_ms=round(ms, 2),
+            stale=False,
+        )
+        metrics.record_cache_hit(
+            tool=ctx.tool_name, cache=ctx.cache_backend, hit_kind=hit_kind
+        )
         metrics.record_tool_result(
-            tool=ctx.tool_name, status="cached",
+            tool=ctx.tool_name,
+            status="cached",
             duration_s=time.monotonic() - ctx.start,
-            cache=ctx.cache_backend, cached=True,
+            cache=ctx.cache_backend,
+            cached=True,
         )
 
     def _record_stale(self, ctx: ToolContext, reason: str) -> None:
-        logger.warning("cache_stale_served", tool=ctx.tool_name, cache=ctx.cache_backend, reason=reason)
-        metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale")
+        logger.warning(
+            "cache_stale_served",
+            tool=ctx.tool_name,
+            cache=ctx.cache_backend,
+            reason=reason,
+        )
+        metrics.record_cache_hit(
+            tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale"
+        )
         metrics.record_tool_result(
-            tool=ctx.tool_name, status="stale",
+            tool=ctx.tool_name,
+            status="stale",
             duration_s=time.monotonic() - ctx.start,
-            cache=ctx.cache_backend, cached=True,
+            cache=ctx.cache_backend,
+            cached=True,
         )
 
 
@@ -238,10 +282,16 @@ class RetryMiddleware(Middleware):
                 return await call_next()
             except Exception as exc:
                 last_error = exc
-                logger.warning("tool_retry", tool=ctx.tool_name, attempt=attempt + 1, of=ctx.retry_count + 1, reason=str(exc))
+                logger.warning(
+                    "tool_retry",
+                    tool=ctx.tool_name,
+                    attempt=attempt + 1,
+                    of=ctx.retry_count + 1,
+                    reason=str(exc),
+                )
                 metrics.record_retry(tool=ctx.tool_name)
                 if attempt < ctx.retry_count:
-                    await asyncio.sleep(ctx.retry_delay * (2 ** attempt))
+                    await asyncio.sleep(ctx.retry_delay * (2**attempt))
 
         # All retries exhausted -- propagate the original exception
         assert last_error is not None
@@ -263,14 +313,33 @@ class CircuitBreakerMiddleware(Middleware):
             ctx.breaker.before_call()
 
         except CircuitOpenError as exc:
-            logger.warning("circuit_rejected", tool=ctx.tool_name, retry_after=round(exc.retry_after, 2))
+            logger.warning(
+                "circuit_rejected",
+                tool=ctx.tool_name,
+                retry_after=round(exc.retry_after, 2),
+            )
             metrics.record_circuit_state(tool=ctx.tool_name, state="open")
 
             # Serve stale cache if circuit is open
             if ctx.stale_if_error and ctx.stale_entry is not None:
-                logger.warning("cache_stale_served", tool=ctx.tool_name, cache=ctx.cache_backend, reason="circuit_open")
-                metrics.record_cache_hit(tool=ctx.tool_name, cache=ctx.cache_backend or "none", hit_kind="stale")
-                metrics.record_tool_result(tool=ctx.tool_name, status="stale", duration_s=time.monotonic() - ctx.start, cache=ctx.cache_backend, cached=True)
+                logger.warning(
+                    "cache_stale_served",
+                    tool=ctx.tool_name,
+                    cache=ctx.cache_backend,
+                    reason="circuit_open",
+                )
+                metrics.record_cache_hit(
+                    tool=ctx.tool_name,
+                    cache=ctx.cache_backend or "none",
+                    hit_kind="stale",
+                )
+                metrics.record_tool_result(
+                    tool=ctx.tool_name,
+                    status="stale",
+                    duration_s=time.monotonic() - ctx.start,
+                    cache=ctx.cache_backend,
+                    cached=True,
+                )
                 return ctx.stale_entry.value
 
             raise
@@ -298,6 +367,7 @@ class CoalescingMiddleware(Middleware):
     """Request coalescing -- collapse concurrent identical calls into one."""
 
     _coalescer = RequestCoalescer()
+
     async def process(self, ctx: ToolContext, call_next: Callable[[], Any]) -> Any:
         if not ctx.coalesce:
             return await call_next()
@@ -310,7 +380,6 @@ class ToolExecutor:
 
     def __init__(self, middlewares: list[Middleware]) -> None:
         self._middlewares = middlewares
-
 
     async def execute(self, ctx: ToolContext, func: Callable[..., Any]) -> Any:
         """
@@ -325,6 +394,7 @@ class ToolExecutor:
         """
 
         index = 0
+
         async def call_next() -> Any:
             nonlocal index
             if index < len(self._middlewares):
@@ -346,16 +416,18 @@ class ToolExecutor:
 
 
 DEFAULT_PIPELINE: list[type[Middleware]] = [
-    FallbackMiddleware,       # 1st: catch all errors from upstream
-    LoggingMiddleware,        # 2nd: log every call
-    CacheMiddleware,          # 3rd: cache lookup / write
-    RetryMiddleware,          # 4th: retry with backoff
-    CircuitBreakerMiddleware, # 5th: count failures after retries
-    CoalescingMiddleware,     # 6th: dedup right before execution
+    FallbackMiddleware,  # 1st: catch all errors from upstream
+    LoggingMiddleware,  # 2nd: log every call
+    CacheMiddleware,  # 3rd: cache lookup / write
+    RetryMiddleware,  # 4th: retry with backoff
+    CircuitBreakerMiddleware,  # 5th: count failures after retries
+    CoalescingMiddleware,  # 6th: dedup right before execution
 ]
 
 
-def build_executor(middleware_classes: list[type[Middleware]] | None = None) -> ToolExecutor:
+def build_executor(
+    middleware_classes: list[type[Middleware]] | None = None,
+) -> ToolExecutor:
     """
     Build a ToolExecutor with the given middleware classes.
 

@@ -14,16 +14,16 @@ Note: This project is open source for knowledge sharing
 
 from __future__ import annotations
 
-import os
-import sys
-import json
-import asyncio
-import inspect
 import argparse
-import platform
+import asyncio
 import importlib
-from typing import Any
+import inspect
+import json
+import os
+import platform
+import sys
 from importlib.metadata import PackageNotFoundError, version
+from typing import Any
 
 from toolops import cache_manager
 from toolops.decorators import build_cache_key
@@ -243,19 +243,25 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser("doctor", help="Inspect runtime and backend readiness")
     subparsers.add_parser("stats", help="Show cache stats")
-    subparsers.add_parser("metrics", help="Print Prometheus-formatted in-process metrics")
+    subparsers.add_parser(
+        "metrics", help="Print Prometheus-formatted in-process metrics"
+    )
 
     clear_parser = subparsers.add_parser("clear", help="Clear one backend or all")
     clear_parser.add_argument("backend")
 
-    inspect_parser = subparsers.add_parser("inspect-key", help="Inspect a cache entry by raw key or by tool+params")
+    inspect_parser = subparsers.add_parser(
+        "inspect-key", help="Inspect a cache entry by raw key or by tool+params"
+    )
     inspect_parser.add_argument("backend")
     inspect_parser.add_argument("key", nargs="?")
     inspect_parser.add_argument("--tool")
     inspect_parser.add_argument("--params-json")
     inspect_parser.add_argument("--key-params")
 
-    invalidate_parser = subparsers.add_parser("invalidate-tags", help="Invalidate entries by tags")
+    invalidate_parser = subparsers.add_parser(
+        "invalidate-tags", help="Invalidate entries by tags"
+    )
     invalidate_parser.add_argument("backend")
     invalidate_parser.add_argument("tags", nargs="+")
 
@@ -284,7 +290,9 @@ async def _dispatch(args: argparse.Namespace) -> Any:
 
     if args.command == "inspect-key":
         if not args.key and not (args.tool and args.params_json):
-            raise SystemExit("inspect-key requires either a raw key or --tool with --params-json.")
+            raise SystemExit(
+                "inspect-key requires either a raw key or --tool with --params-json."
+            )
 
         return await _inspect_key(args)
 

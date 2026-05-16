@@ -15,8 +15,8 @@ Note: This project is open source for knowledge sharing
 from __future__ import annotations
 
 import json
-from uuid import uuid4
 from pathlib import Path
+from uuid import uuid4
 
 from toolops.cli import main
 
@@ -123,9 +123,13 @@ def test_cli_metrics_and_invalidate(monkeypatch, capsys):
 
     # Call a tool to generate metrics
     from toolops import readonly
-    @readonly(cache_backend='m1')
-    async def some_tool(): return 1
+
+    @readonly(cache_backend="m1")
+    async def some_tool():
+        return 1
+
     import asyncio
+
     asyncio.run(some_tool())
 
     main(["--app", "extra_toolops_app:setup", "metrics"])

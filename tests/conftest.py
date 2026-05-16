@@ -16,9 +16,9 @@ from __future__ import annotations
 
 import pytest
 
+import toolops.decorators as decorators_module
 from toolops import cache_manager
 from toolops.observability import metrics
-import toolops.decorators as decorators_module
 
 
 @pytest.fixture(autouse=True)

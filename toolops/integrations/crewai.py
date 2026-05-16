@@ -19,7 +19,9 @@ import inspect
 from typing import Any, Callable
 
 
-def as_crewai_tool(func: Callable[..., Any], *, name: str | None = None, description: str | None = None) -> Any:
+def as_crewai_tool(
+    func: Callable[..., Any], *, name: str | None = None, description: str | None = None
+) -> Any:
     """
     Wrap a function as a CrewAI-compatible tool.
 

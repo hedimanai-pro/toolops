@@ -18,7 +18,12 @@ import inspect
 from typing import Any, Callable
 
 
-def bind_langgraph_node(func: Callable[..., Any], *, arg_map: dict[str, str] | None = None, output_key: str | None = None) -> Callable[[dict[str, Any]], Any]:
+def bind_langgraph_node(
+    func: Callable[..., Any],
+    *,
+    arg_map: dict[str, str] | None = None,
+    output_key: str | None = None,
+) -> Callable[[dict[str, Any]], Any]:
     """
     Build a LangGraph-friendly node from a ToolOps function.
 
@@ -41,7 +46,9 @@ def bind_langgraph_node(func: Callable[..., Any], *, arg_map: dict[str, str] | N
             if state_key in state:
                 kwargs[name] = state[state_key]
             elif parameter.default is inspect._empty:
-                raise KeyError(f"Missing state key '{state_key}' for parameter '{name}'.")
+                raise KeyError(
+                    f"Missing state key '{state_key}' for parameter '{name}'."
+                )
 
         result = func(**kwargs)
         if inspect.isawaitable(result):

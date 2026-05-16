@@ -112,6 +112,7 @@ strict = true
 warn_return_any = true
 warn_unused_ignores = true
 show_error_codes = true
+follow_imports = "silent"
 
 [[tool.mypy.overrides]]
 module = [

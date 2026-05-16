@@ -15,8 +15,8 @@ Note: This project is open source for knowledge sharing
 from __future__ import annotations
 
 import asyncio
-import inspect
 import functools
+import inspect
 from typing import Any, Callable
 
 
@@ -41,7 +41,9 @@ def _sync_wrapper(func: Callable[..., Any]) -> Callable[..., Any]:
     return wrapped
 
 
-def as_langchain_tool(func: Callable[..., Any], *, name: str | None = None, description: str | None = None) -> Any:
+def as_langchain_tool(
+    func: Callable[..., Any], *, name: str | None = None, description: str | None = None
+) -> Any:
     """
     Wrap a function as a LangChain StructuredTool.
 
@@ -60,7 +62,9 @@ def as_langchain_tool(func: Callable[..., Any], *, name: str | None = None, desc
         try:
             from langchain.tools import StructuredTool  # type: ignore[import]
         except ImportError as exc:
-            raise ImportError("LangChain integration requires langchain or langchain-core.") from exc
+            raise ImportError(
+                "LangChain integration requires langchain or langchain-core."
+            ) from exc
 
     tool_name = name or func.__name__
     tool_description = description or inspect.getdoc(func) or tool_name

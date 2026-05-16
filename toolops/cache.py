@@ -14,16 +14,17 @@ Note: This project is open source for knowledge sharing
 
 from __future__ import annotations
 
-import json
-import time
 import asyncio
 import hashlib
-from pathlib import Path
-from typing import Any, Iterable
+import json
+import time
 from abc import ABC, abstractmethod
 from collections import deque
-from datetime import datetime, timezone
+from collections.abc import Iterable
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
 from toolops.logger import logger
 from toolops.observability import metrics
@@ -70,7 +71,7 @@ def _normalise_tags(tags: Iterable[str] | None) -> list[str]:
     return sorted({str(tag) for tag in tags if str(tag).strip()})
 
 
-@dataclass(slots=True)
+@dataclass
 class CacheEntry:
     """Representation of a single cache entry."""
 
@@ -80,7 +81,6 @@ class CacheEntry:
     stale_until: float
     created_at: float
     tags: list[str] = field(default_factory=list)
-
 
     def is_fresh(self, now: float | None = None) -> bool:
         """
@@ -94,7 +94,6 @@ class CacheEntry:
         """
 
         return (now or _now()) <= self.fresh_until
-
 
     def is_stale(self, now: float | None = None) -> bool:
         """
@@ -110,7 +109,6 @@ class CacheEntry:
         current = now or _now()
         return self.fresh_until < current <= self.stale_until
 
-
     def is_expired(self, now: float | None = None) -> bool:
         """
         Check if entry has fully expired.
@@ -123,7 +121,6 @@ class CacheEntry:
         """
 
         return (now or _now()) > self.stale_until
-
 
     def payload(self) -> dict[str, Any]:
         """
@@ -141,7 +138,6 @@ class CacheEntry:
             "created_at": self.created_at,
             "tags": list(self.tags),
         }
-
 
     def inspect(self, *, now: float | None = None) -> dict[str, Any]:
         """
@@ -172,9 +168,16 @@ class CacheEntry:
             "created_at": _utc_iso(self.created_at),
         }
 
-
     @classmethod
-    def create(cls, key: str, value: Any, ttl: int, *, tags: Iterable[str] | None = None, stale_ttl: int | None = None) -> "CacheEntry":
+    def create(
+        cls,
+        key: str,
+        value: Any,
+        ttl: int,
+        *,
+        tags: Iterable[str] | None = None,
+        stale_ttl: int | None = None,
+    ) -> CacheEntry:
         """
         Create a new cache entry.
 
@@ -203,9 +206,10 @@ class CacheEntry:
             tags=_normalise_tags(tags),
         )
 
-
     @classmethod
-    def from_payload(cls, key: str, payload: Any, *, fallback_expiry: float | None = None) -> "CacheEntry":
+    def from_payload(
+        cls, key: str, payload: Any, *, fallback_expiry: float | None = None
+    ) -> CacheEntry:
         """
         Reconstruct entry from a payload.
 
@@ -282,7 +286,6 @@ def cosine_similarity(a: list[float], b: list[float]) -> float:
 class TaggedCacheMixin:
     """Mixin for tag-based cache invalidation."""
 
-
     def _matching_tags(self, entry_tags: Iterable[str], tags: Iterable[str]) -> bool:
         """
         Check if tags intersect.
@@ -301,7 +304,6 @@ class TaggedCacheMixin:
 class CacheBackend(ABC):
     """Abstract base class for cache backends."""
 
-
     @abstractmethod
     async def get(self, key: str) -> Any | None:
         """
@@ -314,9 +316,10 @@ class CacheBackend(ABC):
             Value or None.
         """
 
-
     @abstractmethod
-    async def get_entry(self, key: str, *, allow_stale: bool = False) -> CacheEntry | None:
+    async def get_entry(
+        self, key: str, *, allow_stale: bool = False
+    ) -> CacheEntry | None:
         """
         Get full entry from cache.
 
@@ -328,9 +331,16 @@ class CacheBackend(ABC):
             CacheEntry or None.
         """
 
-
     @abstractmethod
-    async def set(self, key: str, value: Any, ttl: int, *, tags: list[str] | None = None, stale_ttl: int | None = None) -> None:
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: int,
+        *,
+        tags: list[str] | None = None,
+        stale_ttl: int | None = None,
+    ) -> None:
         """
         Store value in cache.
 
@@ -342,7 +352,6 @@ class CacheBackend(ABC):
             stale_ttl: Optional stale window.
         """
 
-
     @abstractmethod
     async def delete(self, key: str) -> None:
         """
@@ -352,11 +361,9 @@ class CacheBackend(ABC):
             key: Cache key.
         """
 
-
     @abstractmethod
     async def clear(self) -> None:
         """Clear entire cache content."""
-
 
     @abstractmethod
     async def invalidate_tags(self, tags: list[str]) -> int:
@@ -370,7 +377,6 @@ class CacheBackend(ABC):
             Number of entries removed.
         """
 
-
     @abstractmethod
     async def inspect(self, key: str) -> dict[str, Any] | None:
         """
@@ -382,7 +388,6 @@ class CacheBackend(ABC):
         Returns:
             Metadata dictionary.
         """
-
 
     @abstractmethod
     async def stats(self) -> dict[str, Any]:
@@ -397,7 +402,6 @@ class CacheBackend(ABC):
 class MemoryCache(CacheBackend, TaggedCacheMixin):
     """In-memory cache implementation with async thread-safety."""
 
-
     def __init__(self) -> None:
         """Initialize memory store, indices, and async lock."""
 
@@ -407,7 +411,6 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
         self._misses = 0
         self._sets = 0
         self._lock = asyncio.Lock()
-
 
     def _purge_if_expired(self, key: str) -> CacheEntry | None:
         """
@@ -427,7 +430,6 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             return None
         return entry
 
-
     def _index(self, entry: CacheEntry) -> None:
         """
         Add entry to tag index.
@@ -438,7 +440,6 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
 
         for tag in entry.tags:
             self._tag_index.setdefault(tag, set()).add(entry.key)
-
 
     def _unindex(self, entry: CacheEntry) -> None:
         """
@@ -455,7 +456,6 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             keys.discard(entry.key)
             if not keys:
                 del self._tag_index[tag]
-
 
     async def get(self, key: str) -> Any | None:
         """
@@ -479,8 +479,9 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             self._misses += 1
             return None
 
-
-    async def get_entry(self, key: str, *, allow_stale: bool = False) -> CacheEntry | None:
+    async def get_entry(
+        self, key: str, *, allow_stale: bool = False
+    ) -> CacheEntry | None:
         """
         Get entry from memory.
 
@@ -507,8 +508,15 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
 
             return None
 
-
-    async def set(self, key: str, value: Any, ttl: int, *, tags: list[str] | None = None, stale_ttl: int | None = None) -> None:
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: int,
+        *,
+        tags: list[str] | None = None,
+        stale_ttl: int | None = None,
+    ) -> None:
         """
         Store value in memory.
 
@@ -532,7 +540,6 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             self._index(entry)
             self._sets += 1
 
-
     async def delete(self, key: str) -> None:
         """
         Delete key from memory.
@@ -548,14 +555,12 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
             if entry:
                 self._unindex(entry)
 
-
     async def clear(self) -> None:
         """Clear all memory entries."""
 
         async with self._lock:
             self._store.clear()
             self._tag_index.clear()
-
 
     async def invalidate_tags(self, tags: list[str]) -> int:
         """
@@ -587,7 +592,6 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
 
             return count
 
-
     async def inspect(self, key: str) -> dict[str, Any] | None:
         """
         Inspect memory entry.
@@ -603,7 +607,6 @@ class MemoryCache(CacheBackend, TaggedCacheMixin):
         if not entry:
             return None
         return entry.inspect()
-
 
     async def stats(self) -> dict[str, Any]:
         """
@@ -646,7 +649,6 @@ CREATE INDEX IF NOT EXISTS idx_toolops_tags
 class PostgresCache(CacheBackend, TaggedCacheMixin):
     """PostgreSQL persistent cache backend."""
 
-
     def __init__(self, dsn: str) -> None:
         """
         Initialize Postgres backend.
@@ -660,7 +662,6 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
         self._hits = 0
         self._misses = 0
         self._sets = 0
-
 
     async def connect(self) -> None:
         """Establish database connection pool."""
@@ -682,12 +683,13 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
 
         except ImportError as exc:
             raise ImportError(
-                'PostgresCache requires asyncpg. '
+                "PostgresCache requires asyncpg. "
                 'Install it with: pip install "toolops[postgres]"'
             ) from exc
 
-
-    async def _fetch_entry(self, key: str, *, include_expired: bool = False) -> CacheEntry | None:
+    async def _fetch_entry(
+        self, key: str, *, include_expired: bool = False
+    ) -> CacheEntry | None:
         """
         Fetch entry from database.
 
@@ -718,7 +720,6 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
 
         return entry
 
-
     async def get(self, key: str) -> Any | None:
         """
         Get value from Postgres.
@@ -737,8 +738,9 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
         self._misses += 1
         return None
 
-
-    async def get_entry(self, key: str, *, allow_stale: bool = False) -> CacheEntry | None:
+    async def get_entry(
+        self, key: str, *, allow_stale: bool = False
+    ) -> CacheEntry | None:
         """
         Get entry from Postgres.
 
@@ -762,8 +764,15 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
 
         return None
 
-
-    async def set(self, key: str, value: Any, ttl: int, *, tags: list[str] | None = None, stale_ttl: int | None = None) -> None:
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: int,
+        *,
+        tags: list[str] | None = None,
+        stale_ttl: int | None = None,
+    ) -> None:
         """
         Store value in Postgres.
 
@@ -793,7 +802,6 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
             )
         self._sets += 1
 
-
     async def delete(self, key: str) -> None:
         """
         Delete key from Postgres.
@@ -805,13 +813,11 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
         async with self._pool.acquire() as conn:
             await conn.execute("DELETE FROM toolops_cache WHERE key = $1", key)
 
-
     async def clear(self) -> None:
         """Clear Postgres cache table."""
 
         async with self._pool.acquire() as conn:
             await conn.execute("DELETE FROM toolops_cache")
-
 
     async def invalidate_tags(self, tags: list[str]) -> int:
         """
@@ -850,7 +856,6 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
 
         return total
 
-
     async def inspect(self, key: str) -> dict[str, Any] | None:
         """
         Inspect Postgres entry.
@@ -867,7 +872,6 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
             return None
         return entry.inspect()
 
-
     async def stats(self) -> dict[str, Any]:
         """
         Get Postgres cache stats.
@@ -878,7 +882,9 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
 
         total = self._hits + self._misses
         async with self._pool.acquire() as conn:
-            active_entries = await conn.fetchval("SELECT COUNT(*) FROM toolops_cache WHERE expires_at > NOW()")
+            active_entries = await conn.fetchval(
+                "SELECT COUNT(*) FROM toolops_cache WHERE expires_at > NOW()"
+            )
         return {
             "backend": "postgres",
             "active_entries": active_entries,
@@ -889,7 +895,6 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
             "hit_rate": round(self._hits / total, 4) if total else 0.0,
         }
 
-
     async def close(self) -> None:
         """Close database connection pool."""
 
@@ -899,7 +904,6 @@ class PostgresCache(CacheBackend, TaggedCacheMixin):
 
 class FileCache(CacheBackend, TaggedCacheMixin):
     """File-system based cache backend."""
-
 
     def __init__(self, directory: str = ".toolops_cache") -> None:
         """
@@ -915,7 +919,6 @@ class FileCache(CacheBackend, TaggedCacheMixin):
         self._misses = 0
         self._sets = 0
 
-
     def _path(self, key: str) -> Path:
         """
         Get file path for key.
@@ -929,7 +932,6 @@ class FileCache(CacheBackend, TaggedCacheMixin):
 
         safe = hashlib.md5(key.encode("utf-8")).hexdigest()
         return self._dir / f"{safe}.json"
-
 
     def _load_entry(self, key: str) -> CacheEntry | None:
         """
@@ -955,7 +957,6 @@ class FileCache(CacheBackend, TaggedCacheMixin):
             return None
         return entry
 
-
     async def get(self, key: str) -> Any | None:
         """
         Get value from file.
@@ -975,8 +976,9 @@ class FileCache(CacheBackend, TaggedCacheMixin):
         self._misses += 1
         return None
 
-
-    async def get_entry(self, key: str, *, allow_stale: bool = False) -> CacheEntry | None:
+    async def get_entry(
+        self, key: str, *, allow_stale: bool = False
+    ) -> CacheEntry | None:
         """
         Get entry from file.
 
@@ -1000,8 +1002,15 @@ class FileCache(CacheBackend, TaggedCacheMixin):
 
         return None
 
-
-    async def set(self, key: str, value: Any, ttl: int, *, tags: list[str] | None = None, stale_ttl: int | None = None) -> None:
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: int,
+        *,
+        tags: list[str] | None = None,
+        stale_ttl: int | None = None,
+    ) -> None:
         """
         Store value in file.
 
@@ -1018,7 +1027,6 @@ class FileCache(CacheBackend, TaggedCacheMixin):
             json.dump(entry.payload(), f, default=str)
         self._sets += 1
 
-
     async def delete(self, key: str) -> None:
         """
         Delete key file.
@@ -1029,13 +1037,11 @@ class FileCache(CacheBackend, TaggedCacheMixin):
 
         self._path(key).unlink(missing_ok=True)
 
-
     async def clear(self) -> None:
         """Delete all cache files."""
 
         for f in self._dir.glob("*.json"):
             f.unlink(missing_ok=True)
-
 
     async def invalidate_tags(self, tags: list[str]) -> int:
         """
@@ -1064,7 +1070,6 @@ class FileCache(CacheBackend, TaggedCacheMixin):
 
         return count
 
-
     async def inspect(self, key: str) -> dict[str, Any] | None:
         """
         Inspect file entry.
@@ -1080,7 +1085,6 @@ class FileCache(CacheBackend, TaggedCacheMixin):
         if not entry:
             return None
         return entry.inspect()
-
 
     async def stats(self) -> dict[str, Any]:
         """
@@ -1126,7 +1130,6 @@ class FileCache(CacheBackend, TaggedCacheMixin):
 class SentenceTransformerEmbedder:
     """Local embedder using sentence-transformers."""
 
-
     def __init__(self, model: str = "all-MiniLM-L6-v2") -> None:
         """
         Initialize the embedder.
@@ -1136,15 +1139,16 @@ class SentenceTransformerEmbedder:
         """
 
         try:
-            from sentence_transformers import SentenceTransformer  # type: ignore[import]
+            from sentence_transformers import (
+                SentenceTransformer,  # type: ignore[import]
+            )
 
             self._model = SentenceTransformer(model)
         except ImportError as exc:
             raise ImportError(
-                'SentenceTransformerEmbedder requires sentence-transformers. '
+                "SentenceTransformerEmbedder requires sentence-transformers. "
                 'Install it with: pip install "toolops[semantic]"'
             ) from exc
-
 
     async def embed(self, text: str) -> list[float]:
         """
@@ -1163,8 +1167,9 @@ class SentenceTransformerEmbedder:
 class OpenAIEmbedder:
     """Cloud embedder using OpenAI API."""
 
-
-    def __init__(self, api_key: str | None = None, model: str = "text-embedding-3-small") -> None:
+    def __init__(
+        self, api_key: str | None = None, model: str = "text-embedding-3-small"
+    ) -> None:
         """
         Initialize OpenAI embedder.
 
@@ -1181,10 +1186,9 @@ class OpenAIEmbedder:
 
         except ImportError as exc:
             raise ImportError(
-                'OpenAIEmbedder requires openai. '
+                "OpenAIEmbedder requires openai. "
                 'Install it with: pip install "toolops[openai]"'
             ) from exc
-
 
     async def embed(self, text: str) -> list[float]:
         """
@@ -1204,8 +1208,9 @@ class OpenAIEmbedder:
 class SemanticCache(CacheBackend, TaggedCacheMixin):
     """Similarity-based semantic cache with O(1) LRU eviction."""
 
-
-    def __init__(self, embedder: Any, threshold: float = 0.92, max_entries: int = 1_000) -> None:
+    def __init__(
+        self, embedder: Any, threshold: float = 0.92, max_entries: int = 1_000
+    ) -> None:
         """
         Initialize semantic cache.
 
@@ -1225,7 +1230,6 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         self._misses = 0
         self._semantic_hits = 0
         self._sets = 0
-
 
     def _extract_query(self, key: str) -> str:
         """
@@ -1248,7 +1252,6 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
             pass
         return key
 
-
     def _cleanup(self) -> None:
         """Remove expired entries from memory."""
 
@@ -1258,7 +1261,6 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
             [entry for entry in self._entries if not entry["entry"].is_expired(now)],
             maxlen=self._max_entries,
         )
-
 
     async def get(self, key: str) -> Any | None:
         """
@@ -1278,8 +1280,9 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         self._misses += 1
         return None
 
-
-    async def get_entry(self, key: str, *, allow_stale: bool = False) -> CacheEntry | None:
+    async def get_entry(
+        self, key: str, *, allow_stale: bool = False
+    ) -> CacheEntry | None:
         """
         Find best matching entry.
 
@@ -1329,8 +1332,15 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
 
         return None
 
-
-    async def set(self, key: str, value: Any, ttl: int, *, tags: list[str] | None = None, stale_ttl: int | None = None) -> None:
+    async def set(
+        self,
+        key: str,
+        value: Any,
+        ttl: int,
+        *,
+        tags: list[str] | None = None,
+        stale_ttl: int | None = None,
+    ) -> None:
         """
         Store value with embedding.
 
@@ -1360,7 +1370,6 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         self._entries.append({"entry": entry, "query": query, "embedding": embedding})
         self._sets += 1
 
-
     async def delete(self, key: str) -> None:
         """
         Delete key from semantic store.
@@ -1374,12 +1383,10 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
             maxlen=self._max_entries,
         )
 
-
     async def clear(self) -> None:
         """Clear all semantic entries."""
 
         self._entries.clear()
-
 
     async def invalidate_tags(self, tags: list[str]) -> int:
         """
@@ -1395,11 +1402,14 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
         wanted = _normalise_tags(tags)
         before = len(self._entries)
         self._entries = deque(
-            [wrapped for wrapped in self._entries if not self._matching_tags(wrapped["entry"].tags, wanted)],
+            [
+                wrapped
+                for wrapped in self._entries
+                if not self._matching_tags(wrapped["entry"].tags, wanted)
+            ],
             maxlen=self._max_entries,
         )
         return before - len(self._entries)
-
 
     async def inspect(self, key: str) -> dict[str, Any] | None:
         """
@@ -1417,7 +1427,6 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
             return None
         return entry.inspect()
 
-
     async def stats(self) -> dict[str, Any]:
         """
         Get semantic cache stats.
@@ -1428,8 +1437,12 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
 
         self._cleanup()
         total = self._hits + self._misses
-        fresh_entries = sum(1 for wrapped in self._entries if wrapped["entry"].is_fresh())
-        stale_entries = sum(1 for wrapped in self._entries if wrapped["entry"].is_stale())
+        fresh_entries = sum(
+            1 for wrapped in self._entries if wrapped["entry"].is_fresh()
+        )
+        stale_entries = sum(
+            1 for wrapped in self._entries if wrapped["entry"].is_stale()
+        )
 
         return {
             "backend": "semantic",
@@ -1448,15 +1461,15 @@ class SemanticCache(CacheBackend, TaggedCacheMixin):
 class CacheManager:
     """Central coordinator for multiple cache backends."""
 
-
     def __init__(self) -> None:
         """Initialize backend registry."""
 
         self._backends: dict[str, CacheBackend] = {}
         self._default: str | None = None
 
-
-    def register(self, name: str, backend: CacheBackend, is_default: bool = False) -> None:
+    def register(
+        self, name: str, backend: CacheBackend, is_default: bool = False
+    ) -> None:
         """
         Register a cache backend.
 
@@ -1477,7 +1490,6 @@ class CacheManager:
             default=self._default == name,
         )
 
-
     def _resolve(self, name: str) -> CacheBackend:
         """
         Resolve backend name to instance.
@@ -1496,7 +1508,6 @@ class CacheManager:
             )
         return self._backends[name]
 
-
     def backend(self, name: str) -> CacheBackend:
         """
         Get backend by name.
@@ -1509,7 +1520,6 @@ class CacheManager:
         """
 
         return self._resolve(name)
-
 
     async def get(self, name: str, key: str) -> Any | None:
         """
@@ -1525,8 +1535,9 @@ class CacheManager:
 
         return await self._resolve(name).get(key)
 
-
-    async def get_entry(self, name: str, key: str, *, allow_stale: bool = False) -> CacheEntry | None:
+    async def get_entry(
+        self, name: str, key: str, *, allow_stale: bool = False
+    ) -> CacheEntry | None:
         """
         Get full entry from specific cache.
 
@@ -1541,8 +1552,16 @@ class CacheManager:
 
         return await self._resolve(name).get_entry(key, allow_stale=allow_stale)
 
-
-    async def set(self, name: str, key: str, value: Any, ttl: int, *, tags: list[str] | None = None, stale_ttl: int | None = None) -> None:
+    async def set(
+        self,
+        name: str,
+        key: str,
+        value: Any,
+        ttl: int,
+        *,
+        tags: list[str] | None = None,
+        stale_ttl: int | None = None,
+    ) -> None:
         """
         Store value in specific cache.
 
@@ -1557,7 +1576,6 @@ class CacheManager:
 
         await self._resolve(name).set(key, value, ttl, tags=tags, stale_ttl=stale_ttl)
 
-
     async def delete(self, name: str, key: str) -> None:
         """
         Delete key from specific cache.
@@ -1569,7 +1587,6 @@ class CacheManager:
 
         await self._resolve(name).delete(key)
 
-
     async def clear(self, name: str) -> None:
         """
         Clear specific cache.
@@ -1580,8 +1597,9 @@ class CacheManager:
 
         await self._resolve(name).clear()
 
-
-    async def invalidate(self, name: str, *, tags: list[str] | None = None, keys: list[str] | None = None) -> int:
+    async def invalidate(
+        self, name: str, *, tags: list[str] | None = None, keys: list[str] | None = None
+    ) -> int:
         """
         Invalidate cache by tags or keys.
 
@@ -1604,11 +1622,16 @@ class CacheManager:
             deleted += await self._resolve(name).invalidate_tags(tags)
 
         if tags or keys:
-            logger.info("cache_invalidated", cache=name, deleted=deleted, tags=tags or [], keys=keys or [])
+            logger.info(
+                "cache_invalidated",
+                cache=name,
+                deleted=deleted,
+                tags=tags or [],
+                keys=keys or [],
+            )
             metrics.record_invalidation(cache=name, count=deleted)
 
         return deleted
-
 
     async def inspect(self, name: str, key: str) -> dict[str, Any] | None:
         """
@@ -1624,14 +1647,12 @@ class CacheManager:
 
         return await self._resolve(name).inspect(key)
 
-
     async def connect_all(self) -> None:
         """Initialize all registered backends."""
 
         for backend in self._backends.values():
             if hasattr(backend, "connect"):
                 await backend.connect()  # type: ignore[attr-defined]
-
 
     async def stats(self) -> dict[str, Any]:
         """
@@ -1642,7 +1663,6 @@ class CacheManager:
         """
 
         return {name: await backend.stats() for name, backend in self._backends.items()}
-
 
     @property
     def registered(self) -> list[str]:
