@@ -1,6 +1,6 @@
 <div align="center">
 
-[🇬🇧 English](README.md) | [🇫🇷 Français](readme/README.fr.md) | [🇨🇳 中文](readme/README.zh.md) | [🇯🇵 日本語](readme/README.ja.md) | [🇪🇸 Español](readme/README.es.md) | [🇩🇪 Deutsch](readme/README.de.md) | [🇵🇹 Português](readme/README.pt.md) | [🇰🇷 한국어](readme/README.ko.md) | [🇷🇺 Русский](readme/README.ru.md) | [🇮🇳 हिन्दी](readme/README.hi.md)
+[🇬🇧 English](https://github.com/hedimanai-pro/toolops/blob/main/README.md) | [🇫🇷 Français](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.fr.md) | [🇨🇳 中文](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.zh.md) | [🇯🇵 日本語](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.ja.md) | [🇪🇸 Español](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.es.md) | [🇩🇪 Deutsch](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.de.md) | [🇵🇹 Português](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.pt.md) | [🇰🇷 한국어](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.ko.md) | [🇷🇺 Русский](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.ru.md) | [🇮🇳 हिन्दी](https://github.com/hedimanai-pro/toolops/blob/main/readme/README.hi.md)
 
 </div>
 <br/>
