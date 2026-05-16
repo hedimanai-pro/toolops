@@ -1,9 +1,9 @@
 """
 Name: test_sync_wrapper.py
 
-Description: Tests for synchronous function wrapping and execution logic.
+Description: Tests for synchronous execution wrappers.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

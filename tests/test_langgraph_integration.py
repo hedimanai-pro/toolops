@@ -1,9 +1,9 @@
 """
 Name: test_langgraph_integration.py
 
-Description: Tests for LangGraph node integration.
+Description: Tests for LangGraph integration.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

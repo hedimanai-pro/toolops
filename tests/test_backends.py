@@ -1,9 +1,9 @@
 """
 Name: test_backends.py
 
-Description: Unit tests for cache backend implementations.
+Description: Tests for cache backends (Memory, File, Postgres).
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

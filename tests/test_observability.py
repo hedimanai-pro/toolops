@@ -1,9 +1,9 @@
 """
 Name: test_observability.py
 
-Description: Integration tests for Prometheus metrics and observability.
+Description: Tests for metrics and observability providers.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

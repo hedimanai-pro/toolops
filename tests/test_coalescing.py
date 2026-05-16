@@ -1,3 +1,17 @@
+"""
+Name: test_coalescing.py
+
+Description: Tests for request coalescing logic.
+
+Last_updated: 2026-05-16
+
+Updated_by: Hedi Manai
+Github: https://github.com/hedimanai-pro
+LinkedIn: https://www.linkedin.com/in/hedimanai
+
+Note: This project is open source for knowledge sharing
+"""
+
 import asyncio
 
 import pytest

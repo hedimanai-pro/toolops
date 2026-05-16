@@ -1,9 +1,9 @@
 """
 Name: test_cli.py
 
-Description: Integration tests for the ToolOps CLI.
+Description: Tests for ToolOps command-line interface.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

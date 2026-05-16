@@ -1,9 +1,9 @@
 """
 Name: test_core_features.py
 
-Description: Tests for core ToolOps features like stale-if-error, circuit breaker, and tags.
+Description: Tests for core SDK features and shortcuts.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

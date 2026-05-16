@@ -1,9 +1,9 @@
 """
 Name: conftest.py
 
-Description: Pytest configuration and global fixtures for ToolOps tests.
+Description: Shared pytest fixtures and configuration for ToolOps tests.
 
-Last_updated: 2026-05-03
+Last_updated: 2026-05-16
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro

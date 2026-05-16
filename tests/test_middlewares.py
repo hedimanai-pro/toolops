@@ -1,3 +1,17 @@
+"""
+Name: test_middlewares.py
+
+Description: Tests for the middleware pipeline architecture.
+
+Last_updated: 2026-05-16
+
+Updated_by: Hedi Manai
+Github: https://github.com/hedimanai-pro
+LinkedIn: https://www.linkedin.com/in/hedimanai
+
+Note: This project is open source for knowledge sharing
+"""
+
 import pytest
 
 from toolops.middlewares import (
