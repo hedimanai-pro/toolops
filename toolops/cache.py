@@ -1160,7 +1160,9 @@ class SentenceTransformerEmbedder:
             Vector embedding.
         """
 
-        return cast(list[float], self._model.encode(text, convert_to_numpy=True).tolist())
+        return cast(
+            list[float], self._model.encode(text, convert_to_numpy=True).tolist()
+        )
 
 
 class OpenAIEmbedder:
@@ -1201,7 +1203,7 @@ class OpenAIEmbedder:
         """
 
         response = await self._client.embeddings.create(input=text, model=self._model)
-        return cast(list[float], response.data[0].embedding)
+        return response.data[0].embedding
 
 
 class SemanticCache(CacheBackend, TaggedCacheMixin):
