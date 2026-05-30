@@ -18,12 +18,12 @@
 [![テスト](https://img.shields.io/badge/tests-passing-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops/actions)
 [![カバレッジ](https://img.shields.io/badge/coverage-100%25-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 [![PyPI ダウンロード](https://img.shields.io/pypi/dm/toolops.svg?color=2C7BB6&style=for-the-badge)](https://pypi.org/project/toolops/)
-[![ライセンス](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](LICENSE)
+[![ライセンス](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](../LICENSE)
 [![GitHub Star](https://img.shields.io/github/stars/hedimanai-pro/toolops.svg?color=D4A017&style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 
 **本番稼働可能なAIエージェントを構築する。インフラストラクチャの定型コードを書くのはもうやめましょう。**
 
-[ウェブサイト](https://hedimanai.vercel.app/) · [ドキュメント](https://hedimanai.vercel.app/projects/toolops.html) · [クイックスタート](#🚀-クイックスタート-quickstart) · [更新履歴](CHANGELOG.md)
+[ウェブサイト](https://hedimanai.vercel.app/) · [ドキュメント](https://hedimanai.vercel.app/projects/toolops.html) · [クイックスタート](#🚀-クイックスタート-quickstart) · [更新履歴](../CHANGELOG.md)
 
 </div>
 
@@ -56,11 +56,11 @@ async def ask_llm(query: str) -> str:
 
 すべてのエージェント開発者は、デモから本番環境へ移行する際に壁にぶつかります。ToolOpsと標準的な代替手段の比較は以下の通りです。
 
-| 機能 | 標準 `@lru_cache` | フレームワークネイティブ | 🚀 ToolOps v0.2.0 |
+| 機能 | 標準 `@lru_cache` | フレームワークネイティブ | 🚀 ToolOps v1.0.0 |
 | :--- | :---: | :---: | :---: |
 | **ネイティブ Async / `await` サポート** | ❌ | ✅ | ✅ ネイティブサポート |
 | **セマンティックキャッシュ (意味に基づくキャッシュ)** | ❌ | ⚠️ 基本的 | ✅ 高度なエンベディング |
-| **分散型 / 永続化キャッシュ** | ❌ | ⚠️ 様々 | ✅ Postgres, ファイル |
+| **分散型 / 永続化キャッシュ** | ❌ | ⚠️ 様々 | ✅ Postgres, SQLite, MySQL, Valkey/Redis |
 | **サーキットブレーカー** | ❌ | ❌ | ✅ ネイティブサポート |
 | **バックオフ付き自動再試行** | ❌ | ⚠️ プラグイン必須 | ✅ ネイティブサポート |
 | **リクエスト合体 (Thundering Herd対策)**| ❌ | ❌ | ✅ ネイティブサポート |
@@ -71,61 +71,13 @@ async def ask_llm(query: str) -> str:
 
 ---
 
-## 📦 インストール (Installation)
+## 📦 インストール
 
-ToolOpsはモジュール式のインストールシステムを採用しています。コアパッケージには**外部依存関係が一切ありません**。必要なものだけをインストールできます。
+ToolOps はデフォルトでフル機能が提供されます。インストールすると、すべてのキャッシュバックエンド（Memory、File、SQLite、Valkey、Redis、MySQL/MariaDB、Postgres、Semantic）、レジリエンス機能、および OpenTelemetry/Prometheus 監視ツールが自動的にインストールされます。
 
-### クイックリファレンス
-
-| インストールコマンド | 得られるもの | 使用シナリオ |
-| :--- | :--- | :--- |
-| `pip install "toolops[all]"` | 全機能セット | **本番環境で推奨** |
-| `pip install toolops` | コアSDKのみ | 使い始めの段階で、追加機能が不要な場合 |
-
-### 💻 OS別のガイド (OS-Specific Guides)
-
-仮想環境でプロジェクトを分離することを強くお勧めします。
-
-#### 🐧 Linux & 🍎 macOS
 ```bash
-# 1. 仮想環境を作成してアクティブ化する
-python -m venv .venv
-source .venv/bin/activate
-
-# 2. ToolOpsをインストールする（bash/zshでは引用符が必要です）
-pip install "toolops[all]"
-
-# 3. インストールを確認する
-toolops doctor
+pip install toolops
 ```
-
-#### 🪟 Windows (PowerShell)
-```powershell
-# 1. 仮想環境を作成してアクティブ化する
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# 2. ToolOpsをインストールする
-pip install "toolops[all]"
-
-# 3. インストールを確認する
-toolops doctor
-```
-
-#### 🪟 Windows (Command Prompt)
-```cmd
-:: 1. 仮想環境を作成してアクティブ化する
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-:: 2. ToolOpsをインストールする（ダブルクォーテーションを使用してください）
-pip install "toolops[all]"
-
-:: 3. インストールを確認する
-toolops doctor
-```
-
----
 
 ## 🚀 クイックスタート (Quickstart)
 
@@ -183,20 +135,48 @@ asyncio.run(main())
 
 ```python
 from toolops import cache_manager
-from toolops.cache import MemoryCache, PostgresCache, FileCache, SemanticCache
+from toolops.cache import (
+    MemoryCache,
+    FileCache,
+    PostgresCache,
+    SQLiteCache,
+    ValkeyCache,
+    RedisCache,
+    MySQLCache,
+    SemanticCache,
+    SentenceTransformerEmbedder,
+)
 
 
-# インメモリ：最速、再起動時にクリアされる、依存関係なし
+# In-memory: fastest, cleared on restart, no extra dependencies
 cache_manager.register("memory", MemoryCache(), is_default=True)
 
 
-# Postgres：再起動後も永続化され、プロセス間で共有可能
+# File: zero-dependency persistent cache, ideal for single-process apps
+cache_manager.register("file", FileCache("/tmp/toolops-cache"))
+
+
+# SQLite: lightweight persistent cache, single-file, no server required
+cache_manager.register("sqlite", SQLiteCache("toolops_cache.db"))
+
+
+# Postgres: persistent across restarts, shareable across processes
 cache_manager.register("db", PostgresCache("postgresql://user:pass@localhost:5432/mydb"))
 
 
-# セマンティック：単なる文字列の一致ではなく、意味によって一致させるベクトルエンベディング
-# LLMの呼び出しを最大90%削減
-from toolops.cache import SentenceTransformerEmbedder
+# Valkey / Redis: distributed in-memory cache with async pooling
+cache_manager.register("valkey", ValkeyCache(host="localhost", port=6379))
+cache_manager.register("redis", RedisCache(url="redis://localhost:6379/0"))
+
+
+# MySQL / MariaDB: persistent relational cache
+cache_manager.register("mysql", MySQLCache(host="localhost", db="myapp", user="root", password="secret"))
+# — or via DSN —
+cache_manager.register("mysql", MySQLCache(dsn="mysql://root:secret@localhost:3306/myapp"))
+
+
+# Semantic: vector embeddings to match by meaning, not string equality
+# Reduces LLM calls up to 90%
 embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
 cache_manager.register("semantic", SemanticCache(embedder=embedder, threshold=0.92))
 ```
@@ -222,9 +202,9 @@ async def get_market_data(ticker: str) -> dict:
     return await api.fetch(ticker)
 ```
 
-### 3. アーキテクチャとセキュリティ (v0.2.0)
+### 3. アーキテクチャとセキュリティ (v1.0.0)
 
-ToolOps v0.2.0では、エンタープライズグレードのアーキテクチャが導入されています。
+ToolOps v1.0.0では、エンタープライズグレードのアーキテクチャが導入されています。
 
 - **ミドルウェア・パイプライン**：モノリシックなデコレータが、構成可能なパイプライン（ロギング、キャッシュ、サーキットブレーカー、再試行、合体、フォールバック）にリファクタリングされました。
 - **SHA-256 キャッシュキーのハッシュ化**：すべてのキャッシュキーは厳密にハッシュ化されます。トークンや個人を特定できる情報（PII）などの機密データがキャッシュストアに公開されることはありません。
@@ -238,17 +218,15 @@ ToolOpsは、すべてのツールの呼び出しを自動的に計測（計装�
 
 ### OpenTelemetry (OTEL) & Prometheus
 
-**必要要件：** `pip install "toolops[otel]"`
-
 ```python
-from toolops.observability import configure_otel, configure_prometheus
+from toolops import configure_opentelemetry, prometheus_metrics
 
-# OTEL互換のバックエンド（Jaeger、Datadog、Honeycombなど）を指定する
-configure_otel(service_name="my-agent", exporter_endpoint="http://localhost:4317")
+# 1. Configure OpenTelemetry tracing (accepts any standard tracer instance)
+configure_opentelemetry(tracer)
 
 
-# Prometheusメトリクスを公開する
-configure_prometheus(port=8000)
+# 2. Expose Prometheus metrics (returns a raw Prometheus text string)
+metrics_string = prometheus_metrics()
 ```
 
 公開される主要なメトリクスには、`toolops_cache_hits_total`、`toolops_tool_latency_seconds`、および `toolops_circuit_opens_total` が含まれます。
@@ -315,9 +293,9 @@ toolops clear memory --app my_app:setup_toolops
 
 ToolOpsはコミュニティによって、コミュニティのために構築されています。
 
-- まずは[コントリビューティングガイド](CONTRIBUTING.md)をご覧ください。
-- [行動規範](CODE_OF_CONDUCT.md)をご確認ください。
-- セキュリティ上の問題は、[セキュリティポリシー](SECURITY.md)を通じて安全に報告してください。
+- まずは[コントリビューティングガイド](../CONTRIBUTING.md)をご覧ください。
+- [行動規範](../CODE_OF_CONDUCT.md)をご確認ください。
+- セキュリティ上の問題は、[セキュリティポリシー](../SECURITY.md)を通じて安全に報告してください。
 
 ---
 

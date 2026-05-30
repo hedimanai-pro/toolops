@@ -56,11 +56,11 @@ async def ask_llm(query: str) -> str:
 
 Every agent developer hits a wall when moving from demo to production. Here is how ToolOps compares to standard alternatives:
 
-| Feature | Standard `@lru_cache` | Framework-Native | 🚀 ToolOps v0.2.0 |
+| Feature | Standard `@lru_cache` | Framework-Native | 🚀 ToolOps v1.0.0 |
 | :--- | :---: | :---: | :---: |
 | **Async / `await` support** | ❌ | ✅ | ✅ Native |
 | **Semantic (meaning-aware) cache** | ❌ | ⚠️ Basic | ✅ Advanced Embeddings |
-| **Distributed / Persistent cache** | ❌ | ⚠️ Varies | ✅ Postgres, File |
+| **Distributed / Persistent cache** | ❌ | ⚠️ Varies | ✅ Postgres, SQLite, MySQL, Valkey/Redis |
 | **Circuit Breaker** | ❌ | ❌ | ✅ Native |
 | **Automatic Retries w/ Backoff** | ❌ | ⚠️ Plugin required | ✅ Native |
 | **Request Coalescing (Anti-Thundering Herd)**| ❌ | ❌ | ✅ Native |
@@ -73,14 +73,11 @@ Every agent developer hits a wall when moving from demo to production. Here is h
 
 ## 📦 Installation
 
-ToolOps uses a modular install system. The core package has **zero external dependencies**. You only install what you need.
+ToolOps is fully batteries-included. Installing it installs all cache backends (Memory, File, SQLite, Valkey, Redis, MySQL/MariaDB, Postgres, and Semantic), resilience features, and OpenTelemetry/Prometheus observability tooling by default.
 
-### Quick Reference
-
-| Install command | What you get | Use when |
-| :--- | :--- | :--- |
-| `pip install "toolops[all]"` | Full feature set | **Recommended for production** |
-| `pip install toolops` | Core SDK only | Starting out, no extras needed |
+```bash
+pip install toolops
+```
 
 ### 💻 OS-Specific Guides
 
@@ -92,8 +89,8 @@ We strongly recommend isolating your project in a virtual environment.
 python -m venv .venv
 source .venv/bin/activate
 
-# 2. Install ToolOps (quotes are required for bash/zsh)
-pip install "toolops[all]"
+# 2. Install ToolOps
+pip install toolops
 
 # 3. Verify installation
 toolops doctor
@@ -106,7 +103,7 @@ python -m venv .venv
 .venv\Scripts\Activate.ps1
 
 # 2. Install ToolOps
-pip install "toolops[all]"
+pip install toolops
 
 # 3. Verify installation
 toolops doctor
@@ -118,8 +115,8 @@ toolops doctor
 python -m venv .venv
 .venv\Scripts\activate.bat
 
-:: 2. Install ToolOps (use double quotes)
-pip install "toolops[all]"
+:: 2. Install ToolOps
+pip install toolops
 
 :: 3. Verify installation
 toolops doctor
@@ -183,20 +180,48 @@ Register backends once at application startup, then reference them by name. Tool
 
 ```python
 from toolops import cache_manager
-from toolops.cache import MemoryCache, PostgresCache, FileCache, SemanticCache
+from toolops.cache import (
+    MemoryCache,
+    FileCache,
+    PostgresCache,
+    SQLiteCache,
+    ValkeyCache,
+    RedisCache,
+    MySQLCache,
+    SemanticCache,
+    SentenceTransformerEmbedder,
+)
 
 
-# In-memory: fastest, cleared on restart, no dependencies
+# In-memory: fastest, cleared on restart, no extra dependencies
 cache_manager.register("memory", MemoryCache(), is_default=True)
+
+
+# File: zero-dependency persistent cache, ideal for single-process apps
+cache_manager.register("file", FileCache("/tmp/toolops-cache"))
+
+
+# SQLite: lightweight persistent cache, single-file, no server required
+cache_manager.register("sqlite", SQLiteCache("toolops_cache.db"))
 
 
 # Postgres: persistent across restarts, shareable across processes
 cache_manager.register("db", PostgresCache("postgresql://user:pass@localhost:5432/mydb"))
 
 
+# Valkey / Redis: distributed in-memory cache with async pooling
+cache_manager.register("valkey", ValkeyCache(host="localhost", port=6379))
+cache_manager.register("redis", RedisCache(url="redis://localhost:6379/0"))
+
+
+# MySQL / MariaDB: persistent relational cache
+cache_manager.register("mysql", MySQLCache(host="localhost", db="myapp", user="root", password="secret"))
+# — or via DSN —
+cache_manager.register("mysql", MySQLCache(dsn="mysql://root:secret@localhost:3306/myapp"))
+
+
 # Semantic: vector embeddings to match by meaning, not string equality
 # Reduces LLM calls up to 90%
-from toolops.cache import SentenceTransformerEmbedder
 embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
 cache_manager.register("semantic", SemanticCache(embedder=embedder, threshold=0.92))
 ```
@@ -222,9 +247,9 @@ async def get_market_data(ticker: str) -> dict:
     return await api.fetch(ticker)
 ```
 
-### 3. Architecture & Security (v0.2.0)
+### 3. Architecture & Security (v1.0.0)
 
-ToolOps v0.2.0 introduces an enterprise-grade architecture:
+ToolOps v1.0.0 introduces an enterprise-grade architecture:
 
 - **Middleware Pipeline**: The monolithic decorator has been refactored into a composable pipeline (`Logging`, `Cache`, `CircuitBreaker`, `Retry`, `Coalescing`, `Fallback`).
 - **SHA-256 Cache Key Hashing**: All cache keys are strictly hashed. No sensitive data (tokens, PII) is exposed in cache stores.
@@ -238,17 +263,15 @@ ToolOps instruments every tool call automatically.
 
 ### OpenTelemetry (OTEL) & Prometheus
 
-**Requires:** `pip install "toolops[otel]"`
-
 ```python
-from toolops.observability import configure_otel, configure_prometheus
+from toolops import configure_opentelemetry, prometheus_metrics
 
-# Point at any OTEL-compatible backend (Jaeger, Datadog, Honeycomb, etc.)
-configure_otel(service_name="my-agent", exporter_endpoint="http://localhost:4317")
+# 1. Configure OpenTelemetry tracing (accepts any standard tracer instance)
+configure_opentelemetry(tracer)
 
 
-# Expose Prometheus metrics
-configure_prometheus(port=8000)
+# 2. Expose Prometheus metrics (returns a raw Prometheus text string)
+metrics_string = prometheus_metrics()
 ```
 
 Key metrics exposed include `toolops_cache_hits_total`, `toolops_tool_latency_seconds`, and `toolops_circuit_opens_total`.

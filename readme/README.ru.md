@@ -18,12 +18,12 @@
 [![Тесты](https://img.shields.io/badge/tests-passing-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops/actions)
 [![Покрытие](https://img.shields.io/badge/coverage-100%25-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 [![Скачивания PyPI](https://img.shields.io/pypi/dm/toolops.svg?color=2C7BB6&style=for-the-badge)](https://pypi.org/project/toolops/)
-[![Лицензия](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](LICENSE)
+[![Лицензия](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](../LICENSE)
 [![Звезды GitHub](https://img.shields.io/github/stars/hedimanai-pro/toolops.svg?color=D4A017&style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 
 **Создавайте ИИ-агентов, готовых к production. Хватит писать шаблонный инфраструктурный код.**
 
-[Веб-сайт](https://hedimanai.vercel.app/) · [Документация](https://hedimanai.vercel.app/projects/toolops.html) · [Быстрый старт](#🚀-быстрый-старт) · [История изменений](CHANGELOG.md)
+[Веб-сайт](https://hedimanai.vercel.app/) · [Документация](https://hedimanai.vercel.app/projects/toolops.html) · [Быстрый старт](#🚀-быстрый-старт) · [История изменений](../CHANGELOG.md)
 
 </div>
 
@@ -56,11 +56,11 @@ async def ask_llm(query: str) -> str:
 
 Каждый разработчик агентов сталкивается с препятствиями при переходе от демо-версии к production. Вот как ToolOps соотносится со стандартными альтернативами:
 
-| Функция | Стандартный `@lru_cache` | Встроенный во фреймворк | 🚀 ToolOps v0.2.0 |
+| Функция | Стандартный `@lru_cache` | Встроенный во фреймворк | 🚀 ToolOps v1.0.0 |
 | :--- | :---: | :---: | :---: |
 | **Нативная поддержка Async / `await`** | ❌ | ✅ | ✅ Нативно |
 | **Семантический кэш (по смыслу)** | ❌ | ⚠️ Базовый | ✅ Продвинутые эмбеддинги |
-| **Распределенный / Постоянный кэш** | ❌ | ⚠️ По-разному | ✅ Postgres, Файл |
+| **Распределенный / Постоянный кэш** | ❌ | ⚠️ По-разному | ✅ Postgres, SQLite, MySQL, Valkey/Redis |
 | **Circuit Breaker (Предохранитель)** | ❌ | ❌ | ✅ Нативно |
 | **Автоматические повторы с Backoff** | ❌ | ⚠️ Нужен плагин | ✅ Нативно |
 | **Объединение запросов (Anti-Thundering Herd)**| ❌ | ❌ | ✅ Нативно |
@@ -73,59 +73,11 @@ async def ask_llm(query: str) -> str:
 
 ## 📦 Установка
 
-ToolOps использует модульную систему установки. Основной пакет **не имеет внешних зависимостей**. Вы устанавливаете только то, что вам нужно.
+ToolOps поставляется в комплекте со всеми функциями. Установка по умолчанию устанавливает все бэкенды кэширования (Memory, File, SQLite, Valkey, Redis, MySQL/MariaDB, Postgres и Semantic), функции отказоустойчивости и инструменты мониторинга OpenTelemetry/Prometheus.
 
-### Краткий справочник
-
-| Команда установки | Что вы получаете | Когда использовать |
-| :--- | :--- | :--- |
-| `pip install "toolops[all]"` | Полный набор функций | **Рекомендуется для production** |
-| `pip install toolops` | Только основной SDK | Для начала работы, без дополнительных функций |
-
-### 💻 Руководства для ОС
-
-Мы настоятельно рекомендуем изолировать ваш проект в виртуальной среде.
-
-#### 🐧 Linux & 🍎 macOS
 ```bash
-# 1. Создайте и активируйте виртуальную среду
-python -m venv .venv
-source .venv/bin/activate
-
-# 2. Установите ToolOps (для bash/zsh обязательны кавычки)
-pip install "toolops[all]"
-
-# 3. Проверьте установку
-toolops doctor
+pip install toolops
 ```
-
-#### 🪟 Windows (PowerShell)
-```powershell
-# 1. Создайте и активируйте виртуальную среду
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# 2. Установите ToolOps
-pip install "toolops[all]"
-
-# 3. Проверьте установку
-toolops doctor
-```
-
-#### 🪟 Windows (Command Prompt)
-```cmd
-:: 1. Создайте и активируйте виртуальную среду
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-:: 2. Установите ToolOps (используйте двойные кавычки)
-pip install "toolops[all]"
-
-:: 3. Проверьте установку
-toolops doctor
-```
-
----
 
 ## 🚀 Быстрый старт
 
@@ -183,20 +135,48 @@ asyncio.run(main())
 
 ```python
 from toolops import cache_manager
-from toolops.cache import MemoryCache, PostgresCache, FileCache, SemanticCache
+from toolops.cache import (
+    MemoryCache,
+    FileCache,
+    PostgresCache,
+    SQLiteCache,
+    ValkeyCache,
+    RedisCache,
+    MySQLCache,
+    SemanticCache,
+    SentenceTransformerEmbedder,
+)
 
 
-# In-memory: самый быстрый, очищается при перезапуске, нет зависимостей
+# In-memory: fastest, cleared on restart, no extra dependencies
 cache_manager.register("memory", MemoryCache(), is_default=True)
 
 
-# Postgres: сохраняется после перезапуска, доступен для совместного использования между процессами
+# File: zero-dependency persistent cache, ideal for single-process apps
+cache_manager.register("file", FileCache("/tmp/toolops-cache"))
+
+
+# SQLite: lightweight persistent cache, single-file, no server required
+cache_manager.register("sqlite", SQLiteCache("toolops_cache.db"))
+
+
+# Postgres: persistent across restarts, shareable across processes
 cache_manager.register("db", PostgresCache("postgresql://user:pass@localhost:5432/mydb"))
 
 
-# Семантический: векторные эмбеддинги для сопоставления по смыслу, а не по точному совпадению строк
-# Снижает количество вызовов LLM до 90%
-from toolops.cache import SentenceTransformerEmbedder
+# Valkey / Redis: distributed in-memory cache with async pooling
+cache_manager.register("valkey", ValkeyCache(host="localhost", port=6379))
+cache_manager.register("redis", RedisCache(url="redis://localhost:6379/0"))
+
+
+# MySQL / MariaDB: persistent relational cache
+cache_manager.register("mysql", MySQLCache(host="localhost", db="myapp", user="root", password="secret"))
+# — or via DSN —
+cache_manager.register("mysql", MySQLCache(dsn="mysql://root:secret@localhost:3306/myapp"))
+
+
+# Semantic: vector embeddings to match by meaning, not string equality
+# Reduces LLM calls up to 90%
 embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
 cache_manager.register("semantic", SemanticCache(embedder=embedder, threshold=0.92))
 ```
@@ -222,9 +202,9 @@ async def get_market_data(ticker: str) -> dict:
     return await api.fetch(ticker)
 ```
 
-### 3. Архитектура и безопасность (v0.2.0)
+### 3. Архитектура и безопасность (v1.0.0)
 
-В ToolOps v0.2.0 представлена архитектура корпоративного уровня:
+В ToolOps v1.0.0 представлена архитектура корпоративного уровня:
 
 - **Конвейер Middleware**: Монолитный декоратор был преобразован в компонуемый конвейер (`Logging`, `Cache`, `CircuitBreaker`, `Retry`, `Coalescing`, `Fallback`).
 - **Хэширование ключей кэша SHA-256**: Все ключи кэша строго хэшируются. Никакие конфиденциальные данные (токены, PII) не сохраняются в хранилищах кэша в открытом виде.
@@ -238,17 +218,15 @@ ToolOps автоматически инструментирует каждый �
 
 ### OpenTelemetry (OTEL) и Prometheus
 
-**Требуется:** `pip install "toolops[otel]"`
-
 ```python
-from toolops.observability import configure_otel, configure_prometheus
+from toolops import configure_opentelemetry, prometheus_metrics
 
-# Укажите любой OTEL-совместимый бэкенд (Jaeger, Datadog, Honeycomb и т. д.)
-configure_otel(service_name="my-agent", exporter_endpoint="http://localhost:4317")
+# 1. Configure OpenTelemetry tracing (accepts any standard tracer instance)
+configure_opentelemetry(tracer)
 
 
-# Экспорт метрик Prometheus
-configure_prometheus(port=8000)
+# 2. Expose Prometheus metrics (returns a raw Prometheus text string)
+metrics_string = prometheus_metrics()
 ```
 
 Ключевые экспортируемые метрики включают `toolops_cache_hits_total`, `toolops_tool_latency_seconds` и `toolops_circuit_opens_total`.
@@ -315,9 +293,9 @@ toolops clear memory --app my_app:setup_toolops
 
 ToolOps создан для сообщества и самим сообществом. 
 
-- Ознакомьтесь с нашим [Руководством по участию](CONTRIBUTING.md), чтобы начать.
-- Ознакомьтесь с [Кодексом поведения](CODE_OF_CONDUCT.md).
-- Сообщайте о проблемах безопасности через нашу [Политику безопасности](SECURITY.md).
+- Ознакомьтесь с нашим [Руководством по участию](../CONTRIBUTING.md), чтобы начать.
+- Ознакомьтесь с [Кодексом поведения](../CODE_OF_CONDUCT.md).
+- Сообщайте о проблемах безопасности через нашу [Политику безопасности](../SECURITY.md).
 
 ---
 

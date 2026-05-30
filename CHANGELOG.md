@@ -5,6 +5,37 @@ All notable changes to ToolOps are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)  
 Versioning: [Semantic Versioning](https://semver.org/)
 
+## [1.0.0] — 2026-05-30
+
+### Added
+- **Unified Cache Backend Lifecycle** — All 7 cache backends (`MemoryCache`, `FileCache`, `SQLiteCache`, `PostgresCache`, `ValkeyCache`, `RedisCache`, `MySQLCache`, `SemanticCache`) now share identical lifecycle rules.
+- **Closed State Validation** — Calling any operation on a closed backend now raises a clear `RuntimeError` instead of auto-reconnecting or throwing AttributeError.
+
+### Changed
+- **Default Batteries-Included Install** — Installing `toolops` now installs all standard drivers and backend dependencies (including SQL databases, Valkey/Redis client libraries, and vector encoders) by default.
+- **Observability Exports** — Replaced deprecated `configure_otel` and `configure_prometheus` in documentation with `configure_opentelemetry` and `prometheus_metrics`. Exported `configure_opentelemetry` from the package root.
+
+## [0.3.0] — 2026-05-30
+
+### Added
+
+- **Modular Cache Package** — `toolops/cache.py` has been refactored into a proper package (`toolops/cache/`). Each backend now lives in its own dedicated module (`base.py`, `memory.py`, `file.py`, `postgres.py`, `sqlite.py`, `valkey.py`, `mysql.py`, `semantic.py`). The public `toolops.cache` import surface is fully preserved — **zero breaking changes**.
+- **`SQLiteCache`** — New lightweight persistent backend using `aiosqlite`. Two-table schema (`toolops_cache`, `toolops_cache_tags`) with full tag invalidation and `stale-while-revalidate` support. Install: `pip install toolops`.
+- **`ValkeyCache`** — New distributed backend targeting [Valkey](https://valkey.io/) (Redis-compatible open-source fork). Uses `redis.asyncio` for full async connection pooling. Tag invalidation via Redis Sets. Install: `pip install toolops`.
+- **`RedisCache`** — Alias of `ValkeyCache` for projects targeting Redis directly. Install: `pip install toolops`.
+- **`MySQLCache`** — New persistent backend compatible with both MySQL 8+ and MariaDB 10.5+. Uses `aiomysql` with async connection pool and `INSERT ... ON DUPLICATE KEY UPDATE` upsert semantics. Supports DSN connection strings (`mysql://user:pass@host/db`). Install: `pip install toolops`.
+- **Optional extras compatibility** — Legacy extras (`[sqlite]`, `[valkey]`, `[redis]`, `[mysql]`, `[all]`) remain available as empty compatibility aliases because all standard backends are installed by default.
+
+### Changed
+
+- **`toolops/cache/` package structure** — Internal refactor; `from toolops.cache import <Backend>` continues to work unchanged.
+- **mypy strict** — All 9 cache modules pass `mypy --strict --ignore-missing-imports` with zero errors. `openai` and `aiomysql` `Any`-typed returns are now explicitly narrowed with `cast()` / `int()` at the boundary.
+
+### Fixed
+
+- **`SemanticCache.embed` return type** — `OpenAIEmbedder.embed` now correctly narrows the `Any`-typed `.embedding` field from the OpenAI stub to `list[float]` via `cast()`.
+- **`MySQLCache.invalidate_tags` return type** — `cursor.rowcount` (typed `Any` by `aiomysql`) is now explicitly narrowed to `int` before returning.
+
 ---
 
 ## [0.2.0] — 2026-05-16
@@ -72,7 +103,7 @@ First public release of ToolOps. 🎉
 
 **Cache backends**
 - `MemoryCache` — in-process TTL cache, zero dependencies
-- `PostgresCache` — PostgreSQL backend via `asyncpg` (`pip install "toolops[postgres]"`)
+- `PostgresCache` — PostgreSQL backend via `asyncpg` (`pip install toolops`)
 - `FileCache` — file-system JSON cache, zero dependencies
 - `SemanticCache` — similarity-based cache using cosine distance
 

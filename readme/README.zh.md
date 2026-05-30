@@ -18,12 +18,12 @@
 [![测试](https://img.shields.io/badge/tests-passing-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops/actions)
 [![覆盖率](https://img.shields.io/badge/coverage-100%25-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 [![PyPI 下载量](https://img.shields.io/pypi/dm/toolops.svg?color=2C7BB6&style=for-the-badge)](https://pypi.org/project/toolops/)
-[![许可证](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](LICENSE)
+[![许可证](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](../LICENSE)
 [![GitHub Star](https://img.shields.io/github/stars/hedimanai-pro/toolops.svg?color=D4A017&style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 
 **构建生产级 AI 智能体。停止编写基础设施样板代码。**
 
-[官方网站](https://hedimanai.vercel.app/) · [文档说明](https://hedimanai.vercel.app/projects/toolops.html) · [快速开始](#🚀-快速开始) · [更新日志](CHANGELOG.md)
+[官方网站](https://hedimanai.vercel.app/) · [文档说明](https://hedimanai.vercel.app/projects/toolops.html) · [快速开始](#🚀-快速开始) · [更新日志](../CHANGELOG.md)
 
 </div>
 
@@ -56,11 +56,11 @@ async def ask_llm(query: str) -> str:
 
 每位智能体开发者在从演示阶段走向生产环境时都会遇到瓶颈。以下是 ToolOps 与标准替代方案的对比：
 
-| 功能特性 | 标准 `@lru_cache` | 框架原生 | 🚀 ToolOps v0.2.0 |
+| 功能特性 | 标准 `@lru_cache` | 框架原生 | 🚀 ToolOps v1.0.0 |
 | :--- | :---: | :---: | :---: |
 | **原生 Async / `await` 支持** | ❌ | ✅ | ✅ 原生支持 |
 | **语义缓存 (基于含义感知)** | ❌ | ⚠️ 基础版 | ✅ 高级词向量 |
-| **分布式 / 持久化缓存** | ❌ | ⚠️ 视情况而定 | ✅ Postgres, 文件 |
+| **分布式 / 持久化缓存** | ❌ | ⚠️ 视情况而定 | ✅ Postgres, SQLite, MySQL, Valkey/Redis |
 | **熔断器 (Circuit Breaker)** | ❌ | ❌ | ✅ 原生支持 |
 | **带退避的自动重试** | ❌ | ⚠️ 需插件 | ✅ 原生支持 |
 | **请求合并 (防雪崩效应)** | ❌ | ❌ | ✅ 原生支持 |
@@ -73,59 +73,11 @@ async def ask_llm(query: str) -> str:
 
 ## 📦 安装
 
-ToolOps 使用模块化的安装系统。核心包**零外部依赖**。您只需安装所需的部分。
+ToolOps 默认提供完整功能。安装它将默认自动安装所有缓存后端（Memory、File、SQLite、Valkey、Redis、MySQL/MariaDB、Postgres 和 Semantic）、弹性机制以及 OpenTelemetry/Prometheus 可观测性工具。
 
-### 快速参考
-
-| 安装命令 | 您将获得 | 使用场景 |
-| :--- | :--- | :--- |
-| `pip install "toolops[all]"` | 完整功能集 | **生产环境推荐** |
-| `pip install toolops` | 仅核心 SDK | 刚开始使用，无需额外功能 |
-
-### 💻 操作系统指南
-
-我们强烈建议您在虚拟环境中隔离您的项目。
-
-#### 🐧 Linux & 🍎 macOS
 ```bash
-# 1. 创建并激活虚拟环境
-python -m venv .venv
-source .venv/bin/activate
-
-# 2. 安装 ToolOps（bash/zsh 需要引号）
-pip install "toolops[all]"
-
-# 3. 验证安装
-toolops doctor
+pip install toolops
 ```
-
-#### 🪟 Windows (PowerShell)
-```powershell
-# 1. 创建并激活虚拟环境
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# 2. 安装 ToolOps
-pip install "toolops[all]"
-
-# 3. 验证安装
-toolops doctor
-```
-
-#### 🪟 Windows (Command Prompt)
-```cmd
-:: 1. 创建并激活虚拟环境
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-:: 2. 安装 ToolOps（使用双引号）
-pip install "toolops[all]"
-
-:: 3. 验证安装
-toolops doctor
-```
-
----
 
 ## 🚀 快速开始
 
@@ -183,20 +135,48 @@ asyncio.run(main())
 
 ```python
 from toolops import cache_manager
-from toolops.cache import MemoryCache, PostgresCache, FileCache, SemanticCache
+from toolops.cache import (
+    MemoryCache,
+    FileCache,
+    PostgresCache,
+    SQLiteCache,
+    ValkeyCache,
+    RedisCache,
+    MySQLCache,
+    SemanticCache,
+    SentenceTransformerEmbedder,
+)
 
 
-# 内存缓存：速度最快，重启后清除，无依赖
+# In-memory: fastest, cleared on restart, no extra dependencies
 cache_manager.register("memory", MemoryCache(), is_default=True)
 
 
-# Postgres 缓存：重启后持久化，可跨进程共享
+# File: zero-dependency persistent cache, ideal for single-process apps
+cache_manager.register("file", FileCache("/tmp/toolops-cache"))
+
+
+# SQLite: lightweight persistent cache, single-file, no server required
+cache_manager.register("sqlite", SQLiteCache("toolops_cache.db"))
+
+
+# Postgres: persistent across restarts, shareable across processes
 cache_manager.register("db", PostgresCache("postgresql://user:pass@localhost:5432/mydb"))
 
 
-# 语义缓存：通过向量（embeddings）按语义匹配，而不是简单的字符串相等
-# 最高可减少 90% 的 LLM 调用
-from toolops.cache import SentenceTransformerEmbedder
+# Valkey / Redis: distributed in-memory cache with async pooling
+cache_manager.register("valkey", ValkeyCache(host="localhost", port=6379))
+cache_manager.register("redis", RedisCache(url="redis://localhost:6379/0"))
+
+
+# MySQL / MariaDB: persistent relational cache
+cache_manager.register("mysql", MySQLCache(host="localhost", db="myapp", user="root", password="secret"))
+# — or via DSN —
+cache_manager.register("mysql", MySQLCache(dsn="mysql://root:secret@localhost:3306/myapp"))
+
+
+# Semantic: vector embeddings to match by meaning, not string equality
+# Reduces LLM calls up to 90%
 embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
 cache_manager.register("semantic", SemanticCache(embedder=embedder, threshold=0.92))
 ```
@@ -222,9 +202,9 @@ async def get_market_data(ticker: str) -> dict:
     return await api.fetch(ticker)
 ```
 
-### 3. 架构与安全性 (v0.2.0)
+### 3. 架构与安全性 (v1.0.0)
 
-ToolOps v0.2.0 引入了企业级架构：
+ToolOps v1.0.0 引入了企业级架构：
 
 - **中间件流水线 (Middleware Pipeline)**：原本的单体装饰器已重构为可组合的流水线（日志记录、缓存、熔断器、重试、请求合并、降级）。
 - **SHA-256 缓存键哈希**：所有缓存键都经过严格的哈希处理。缓存存储中不会暴露任何敏感数据（令牌、PII 等）。
@@ -238,17 +218,15 @@ ToolOps 会自动对每个工具调用进行监控插桩。
 
 ### OpenTelemetry (OTEL) & Prometheus
 
-**需要执行：** `pip install "toolops[otel]"`
-
 ```python
-from toolops.observability import configure_otel, configure_prometheus
+from toolops import configure_opentelemetry, prometheus_metrics
 
-# 指向任何兼容 OTEL 的后端 (Jaeger, Datadog, Honeycomb 等)
-configure_otel(service_name="my-agent", exporter_endpoint="http://localhost:4317")
+# 1. Configure OpenTelemetry tracing (accepts any standard tracer instance)
+configure_opentelemetry(tracer)
 
 
-# 暴露 Prometheus 监控指标
-configure_prometheus(port=8000)
+# 2. Expose Prometheus metrics (returns a raw Prometheus text string)
+metrics_string = prometheus_metrics()
 ```
 
 暴露的关键指标包括 `toolops_cache_hits_total`、`toolops_tool_latency_seconds` 和 `toolops_circuit_opens_total`。
@@ -315,9 +293,9 @@ toolops clear memory --app my_app:setup_toolops
 
 ToolOps 为社区而建，由社区共建。
 
-- 阅读我们的[贡献指南](CONTRIBUTING.md)以开始。
-- 了解我们的[行为准则](CODE_OF_CONDUCT.md)。
-- 通过我们的[安全策略](SECURITY.md)安全地报告安全问题。
+- 阅读我们的[贡献指南](../CONTRIBUTING.md)以开始。
+- 了解我们的[行为准则](../CODE_OF_CONDUCT.md)。
+- 通过我们的[安全策略](../SECURITY.md)安全地报告安全问题。
 
 ---
 

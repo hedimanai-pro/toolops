@@ -1,6 +1,6 @@
 # ToolOps Documentation
 
-<img src="assets/logo.png" width="150" alt="ToolOps Logo">
+<img src="https://raw.githubusercontent.com/hedimanai-pro/toolops/main/docs/assets/logo.png" width="150" alt="ToolOps Logo">
 
 **The Resilience & Efficiency Layer for AI Agent Tools.**
 
@@ -24,26 +24,25 @@ Every production AI agent eventually faces the same problems:
 
 ---
 
-## v0.2.0 Highlights (Security & Architecture)
+## v1.0.0 Highlights (Stable Default Install)
 
-ToolOps v0.2.0 brings industrial-grade stability and security to the core:
-- **Middleware Pipeline**: Replaced monolithic decorators with a modular, composable pipeline (`LoggingMiddleware`, `CacheMiddleware`, `CircuitBreakerMiddleware`, etc.).
+ToolOps v1.0.0 provides a stable, batteries-included installation model and production-grade architecture:
+- **Single Install Command**: `pip install toolops` installs the supported cache backends, database drivers, semantic caching, OpenAI embeddings, and telemetry libraries by default.
+- **Middleware Pipeline**: Decorators run through a modular, composable pipeline (`LoggingMiddleware`, `CacheMiddleware`, `CircuitBreakerMiddleware`, etc.).
 - **Security Hardening**:
   - All cache keys are now **SHA-256 hashed** to prevent data leakage.
   - Automatic masking of sensitive keywords (e.g., `token`, `password`) in structured logs.
-  - New `sensitive_params` parameter in all decorators to explicitly exclude fields from cache keys.
+  - `sensitive_params` is available in all decorators to explicitly exclude fields from cache keys.
 - **Docker Environment**: Quick local setup via `docker-compose up -d` with a pre-configured PostgreSQL instance.
 
 ---
 
 ## Installation
 
-```bash
-# Minimal install
-pip install toolops
+ToolOps installs all standard backends and observability dependencies by default.
 
-# With all features (Postgres, Semantic, OTEL)
-pip install "toolops[all]"
+```bash
+pip install toolops
 ```
 
 ---
@@ -62,12 +61,15 @@ from toolops.cache import MemoryCache
 cache_manager.register("memory", MemoryCache(), is_default=True)
 ```
 
-| Backend | Extra | Best for |
-|---|---|---|
-| `MemoryCache` | — | Dev / testing, single process |
-| `PostgresCache` | `[postgres]` | Persistent cache, audit trail |
-| `FileCache` | — | Lightweight local persistence |
-| `SemanticCache` | `[semantic]` | NLP / RAG similarity matching |
+| Backend | Best for |
+|---|---|
+| `MemoryCache` | Dev / testing, single process |
+| `FileCache` | Lightweight local persistence |
+| `SQLiteCache` | Lightweight persistent cache, single-file |
+| `PostgresCache` | Persistent cache, shared database |
+| `MySQLCache` | Persistent cache, MySQL / MariaDB databases |
+| `ValkeyCache` / `RedisCache` | High-performance distributed memory cache |
+| `SemanticCache` | NLP / RAG meaning-aware similarity matching |
 
 ---
 

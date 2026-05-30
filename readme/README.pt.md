@@ -18,12 +18,12 @@
 [![Testes](https://img.shields.io/badge/tests-passing-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops/actions)
 [![Cobertura](https://img.shields.io/badge/coverage-100%25-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 [![Downloads PyPI](https://img.shields.io/pypi/dm/toolops.svg?color=2C7BB6&style=for-the-badge)](https://pypi.org/project/toolops/)
-[![Licença](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](LICENSE)
+[![Licença](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](../LICENSE)
 [![Estrelas GitHub](https://img.shields.io/github/stars/hedimanai-pro/toolops.svg?color=D4A017&style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 
 **Construa agentes de IA prontos para produção. Pare de escrever código de infraestrutura repetitivo.**
 
-[Site](https://hedimanai.vercel.app/) · [Documentação](https://hedimanai.vercel.app/projects/toolops.html) · [Início Rápido](#🚀-início-rápido) · [Registro de Alterações](CHANGELOG.md)
+[Site](https://hedimanai.vercel.app/) · [Documentação](https://hedimanai.vercel.app/projects/toolops.html) · [Início Rápido](#🚀-início-rápido) · [Registro de Alterações](../CHANGELOG.md)
 
 </div>
 
@@ -56,11 +56,11 @@ async def ask_llm(query: str) -> str:
 
 Todo desenvolvedor de agentes bate de frente com um muro ao passar da demonstração (demo) para a produção. Veja como o ToolOps se compara às alternativas padrão:
 
-| Característica | `@lru_cache` padrão | Nativo do Framework | 🚀 ToolOps v0.2.0 |
+| Característica | `@lru_cache` padrão | Nativo do Framework | 🚀 ToolOps v1.0.0 |
 | :--- | :---: | :---: | :---: |
 | **Suporte nativo Async / `await`** | ❌ | ✅ | ✅ Nativo |
 | **Cache semântico (baseado no significado)** | ❌ | ⚠️ Básico | ✅ Embeddings Avançados |
-| **Cache distribuído / persistente** | ❌ | ⚠️ Varia | ✅ Postgres, Arquivo |
+| **Cache distribuído / persistente** | ❌ | ⚠️ Varia | ✅ Postgres, SQLite, MySQL, Valkey/Redis |
 | **Circuit Breaker** | ❌ | ❌ | ✅ Nativo |
 | **Repetições automáticas com Backoff** | ❌ | ⚠️ Requer plugin | ✅ Nativo |
 | **Fusão de Requisições (Anti-Thundering Herd)**| ❌ | ❌ | ✅ Nativo |
@@ -73,59 +73,11 @@ Todo desenvolvedor de agentes bate de frente com um muro ao passar da demonstra�
 
 ## 📦 Instalação
 
-O ToolOps usa um sistema de instalação modular. O pacote principal possui **zero dependências externas**. Você só instala o que precisa.
+ToolOps vem totalmente equipado. Ao instalá-lo, todos os backends de cache (Memory, File, SQLite, Valkey, Redis, MySQL/MariaDB, Postgres e Semantic), recursos de resiliência e ferramentas de observabilidade OpenTelemetry/Prometheus são instalados por padrão.
 
-### Referência Rápida
-
-| Comando de instalação | O que você obtém | Quando usar |
-| :--- | :--- | :--- |
-| `pip install "toolops[all]"` | Conjunto completo de recursos | **Recomendado para produção** |
-| `pip install toolops` | Apenas o SDK principal | Para começar, sem necessidade de extras |
-
-### 💻 Guias Específicos por Sistema Operacional
-
-Recomendamos fortemente isolar seu projeto em um ambiente virtual.
-
-#### 🐧 Linux & 🍎 macOS
 ```bash
-# 1. Crie e ative um ambiente virtual
-python -m venv .venv
-source .venv/bin/activate
-
-# 2. Instale o ToolOps (aspas são obrigatórias para bash/zsh)
-pip install "toolops[all]"
-
-# 3. Verifique a instalação
-toolops doctor
+pip install toolops
 ```
-
-#### 🪟 Windows (PowerShell)
-```powershell
-# 1. Crie e ative um ambiente virtual
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# 2. Instale o ToolOps
-pip install "toolops[all]"
-
-# 3. Verifique a instalação
-toolops doctor
-```
-
-#### 🪟 Windows (Command Prompt)
-```cmd
-:: 1. Crie e ative um ambiente virtual
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-:: 2. Instale o ToolOps (use aspas duplas)
-pip install "toolops[all]"
-
-:: 3. Verifique a instalação
-toolops doctor
-```
-
----
 
 ## 🚀 Início Rápido
 
@@ -183,20 +135,48 @@ Registre os backends uma vez na inicialização do aplicativo e, em seguida, ref
 
 ```python
 from toolops import cache_manager
-from toolops.cache import MemoryCache, PostgresCache, FileCache, SemanticCache
+from toolops.cache import (
+    MemoryCache,
+    FileCache,
+    PostgresCache,
+    SQLiteCache,
+    ValkeyCache,
+    RedisCache,
+    MySQLCache,
+    SemanticCache,
+    SentenceTransformerEmbedder,
+)
 
 
-# Em memória: o mais rápido, limpo ao reiniciar, sem dependências
+# In-memory: fastest, cleared on restart, no extra dependencies
 cache_manager.register("memory", MemoryCache(), is_default=True)
 
 
-# Postgres: persistente após reinicializações, compartilhável entre processos
+# File: zero-dependency persistent cache, ideal for single-process apps
+cache_manager.register("file", FileCache("/tmp/toolops-cache"))
+
+
+# SQLite: lightweight persistent cache, single-file, no server required
+cache_manager.register("sqlite", SQLiteCache("toolops_cache.db"))
+
+
+# Postgres: persistent across restarts, shareable across processes
 cache_manager.register("db", PostgresCache("postgresql://user:pass@localhost:5432/mydb"))
 
 
-# Semântico: embeddings de vetor para corresponder pelo significado, não por igualdade estrita de strings
-# Reduz as chamadas de LLMs em até 90%
-from toolops.cache import SentenceTransformerEmbedder
+# Valkey / Redis: distributed in-memory cache with async pooling
+cache_manager.register("valkey", ValkeyCache(host="localhost", port=6379))
+cache_manager.register("redis", RedisCache(url="redis://localhost:6379/0"))
+
+
+# MySQL / MariaDB: persistent relational cache
+cache_manager.register("mysql", MySQLCache(host="localhost", db="myapp", user="root", password="secret"))
+# — or via DSN —
+cache_manager.register("mysql", MySQLCache(dsn="mysql://root:secret@localhost:3306/myapp"))
+
+
+# Semantic: vector embeddings to match by meaning, not string equality
+# Reduces LLM calls up to 90%
 embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
 cache_manager.register("semantic", SemanticCache(embedder=embedder, threshold=0.92))
 ```
@@ -222,9 +202,9 @@ async def get_market_data(ticker: str) -> dict:
     return await api.fetch(ticker)
 ```
 
-### 3. Arquitetura e Segurança (v0.2.0)
+### 3. Arquitetura e Segurança (v1.0.0)
 
-A versão v0.2.0 do ToolOps introduz uma arquitetura de nível corporativo:
+A versão v1.0.0 do ToolOps introduz uma arquitetura de nível corporativo:
 
 - **Pipeline de Middleware**: O decorador monolítico foi refatorado em um pipeline combinável (`Logging`, `Cache`, `CircuitBreaker`, `Retry`, `Coalescing`, `Fallback`).
 - **Hash de Chaves de Cache SHA-256**: Todas as chaves de cache têm hash estrito. Nenhum dado confidencial (tokens, PII) é exposto nos armazenamentos de cache.
@@ -238,17 +218,15 @@ O ToolOps instrumenta cada chamada de ferramenta automaticamente.
 
 ### OpenTelemetry (OTEL) & Prometheus
 
-**Requer:** `pip install "toolops[otel]"`
-
 ```python
-from toolops.observability import configure_otel, configure_prometheus
+from toolops import configure_opentelemetry, prometheus_metrics
 
-# Aponte para qualquer backend compatível com OTEL (Jaeger, Datadog, Honeycomb, etc.)
-configure_otel(service_name="my-agent", exporter_endpoint="http://localhost:4317")
+# 1. Configure OpenTelemetry tracing (accepts any standard tracer instance)
+configure_opentelemetry(tracer)
 
 
-# Expor métricas do Prometheus
-configure_prometheus(port=8000)
+# 2. Expose Prometheus metrics (returns a raw Prometheus text string)
+metrics_string = prometheus_metrics()
 ```
 
 As principais métricas expostas incluem `toolops_cache_hits_total`, `toolops_tool_latency_seconds` e `toolops_circuit_opens_total`.
@@ -315,9 +293,9 @@ toolops clear memory --app my_app:setup_toolops
 
 O ToolOps foi desenvolvido para a comunidade, pela comunidade. 
 
-- Revise nosso [Guia de Contribuição](CONTRIBUTING.md) para começar.
-- Confira o [Código de Conduta](CODE_OF_CONDUCT.md).
-- Relate problemas de segurança com segurança por meio de nossa [Política de Segurança](SECURITY.md).
+- Revise nosso [Guia de Contribuição](../CONTRIBUTING.md) para começar.
+- Confira o [Código de Conduta](../CODE_OF_CONDUCT.md).
+- Relate problemas de segurança com segurança por meio de nossa [Política de Segurança](../SECURITY.md).
 
 ---
 

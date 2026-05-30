@@ -18,12 +18,12 @@
 [![테스트](https://img.shields.io/badge/tests-passing-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops/actions)
 [![커버리지](https://img.shields.io/badge/coverage-100%25-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 [![PyPI 다운로드](https://img.shields.io/pypi/dm/toolops.svg?color=2C7BB6&style=for-the-badge)](https://pypi.org/project/toolops/)
-[![라이선스](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](LICENSE)
+[![라이선스](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](../LICENSE)
 [![GitHub Star](https://img.shields.io/github/stars/hedimanai-pro/toolops.svg?color=D4A017&style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 
 **프로덕션 레벨의 AI 에이전트를 구축하세요. 인프라 보일러플레이트 코드 작성은 이제 그만하세요.**
 
-[웹사이트](https://hedimanai.vercel.app/) · [공식 문서](https://hedimanai.vercel.app/projects/toolops.html) · [빠른 시작](#🚀-빠른-시작-quickstart) · [변경 내역](CHANGELOG.md)
+[웹사이트](https://hedimanai.vercel.app/) · [공식 문서](https://hedimanai.vercel.app/projects/toolops.html) · [빠른 시작](#🚀-빠른-시작-quickstart) · [변경 내역](../CHANGELOG.md)
 
 </div>
 
@@ -56,11 +56,11 @@ async def ask_llm(query: str) -> str:
 
 모든 에이전트 개발자는 데모에서 프로덕션 환경으로 넘어갈 때 벽에 부딪힙니다. ToolOps와 표준 대안들의 비교는 다음과 같습니다:
 
-| 기능 | 표준 `@lru_cache` | 프레임워크 네이티브 | 🚀 ToolOps v0.2.0 |
+| 기능 | 표준 `@lru_cache` | 프레임워크 네이티브 | 🚀 ToolOps v1.0.0 |
 | :--- | :---: | :---: | :---: |
 | **네이티브 Async / `await` 지원** | ❌ | ✅ | ✅ 네이티브 |
 | **시맨틱(의미 인식) 캐시** | ❌ | ⚠️ 기본적 | ✅ 고급 임베딩 |
-| **분산 / 영구 캐시** | ❌ | ⚠️ 상이함 | ✅ Postgres, 파일 |
+| **분산 / 영구 캐시** | ❌ | ⚠️ 상이함 | ✅ Postgres, SQLite, MySQL, Valkey/Redis |
 | **서킷 브레이커 (Circuit Breaker)** | ❌ | ❌ | ✅ 네이티브 |
 | **백오프(Backoff)를 적용한 자동 재시도** | ❌ | ⚠️ 플러그인 필요 | ✅ 네이티브 |
 | **요청 병합 (Anti-Thundering Herd)**| ❌ | ❌ | ✅ 네이티브 |
@@ -73,59 +73,11 @@ async def ask_llm(query: str) -> str:
 
 ## 📦 설치
 
-ToolOps는 모듈식 설치 시스템을 사용합니다. 코어 패키지에는 **외부 종속성이 전혀 없습니다**. 필요한 것만 설치하세요.
+ToolOps는 기본적으로 모든 기능을 제공합니다. 설치 시 모든 캐시 백엔드(Memory, File, SQLite, Valkey, Redis, MySQL/MariaDB, Postgres, Semantic), 회복성 기능 및 OpenTelemetry/Prometheus 모니터링 도구가 기본적으로 자동 설치됩니다.
 
-### 빠른 참조
-
-| 설치 명령어 | 얻을 수 있는 기능 | 사용 시기 |
-| :--- | :--- | :--- |
-| `pip install "toolops[all]"` | 모든 기능 세트 | **프로덕션 환경 권장** |
-| `pip install toolops` | 코어 SDK 전용 | 시작 단계, 추가 기능 불필요 |
-
-### 💻 OS별 가이드
-
-가상 환경에서 프로젝트를 격리하는 것을 강력히 권장합니다.
-
-#### 🐧 Linux & 🍎 macOS
 ```bash
-# 1. 가상 환경 생성 및 활성화
-python -m venv .venv
-source .venv/bin/activate
-
-# 2. ToolOps 설치 (bash/zsh의 경우 따옴표 필요)
-pip install "toolops[all]"
-
-# 3. 설치 확인
-toolops doctor
+pip install toolops
 ```
-
-#### 🪟 Windows (PowerShell)
-```powershell
-# 1. 가상 환경 생성 및 활성화
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# 2. ToolOps 설치
-pip install "toolops[all]"
-
-# 3. 설치 확인
-toolops doctor
-```
-
-#### 🪟 Windows (Command Prompt)
-```cmd
-:: 1. 가상 환경 생성 및 활성화
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-:: 2. ToolOps 설치 (큰따옴표 사용)
-pip install "toolops[all]"
-
-:: 3. 설치 확인
-toolops doctor
-```
-
----
 
 ## 🚀 빠른 시작 (Quickstart)
 
@@ -183,20 +135,48 @@ asyncio.run(main())
 
 ```python
 from toolops import cache_manager
-from toolops.cache import MemoryCache, PostgresCache, FileCache, SemanticCache
+from toolops.cache import (
+    MemoryCache,
+    FileCache,
+    PostgresCache,
+    SQLiteCache,
+    ValkeyCache,
+    RedisCache,
+    MySQLCache,
+    SemanticCache,
+    SentenceTransformerEmbedder,
+)
 
 
-# 인메모리: 가장 빠름, 재시작 시 지워짐, 종속성 없음
+# In-memory: fastest, cleared on restart, no extra dependencies
 cache_manager.register("memory", MemoryCache(), is_default=True)
 
 
-# Postgres: 재시작 후에도 영구적 유지, 프로세스 간 공유 가능
+# File: zero-dependency persistent cache, ideal for single-process apps
+cache_manager.register("file", FileCache("/tmp/toolops-cache"))
+
+
+# SQLite: lightweight persistent cache, single-file, no server required
+cache_manager.register("sqlite", SQLiteCache("toolops_cache.db"))
+
+
+# Postgres: persistent across restarts, shareable across processes
 cache_manager.register("db", PostgresCache("postgresql://user:pass@localhost:5432/mydb"))
 
 
-# 시맨틱: 단순 문자열 일치가 아닌 의미에 따라 일치하는 벡터 임베딩
-# LLM 호출을 최대 90%까지 감소시킴
-from toolops.cache import SentenceTransformerEmbedder
+# Valkey / Redis: distributed in-memory cache with async pooling
+cache_manager.register("valkey", ValkeyCache(host="localhost", port=6379))
+cache_manager.register("redis", RedisCache(url="redis://localhost:6379/0"))
+
+
+# MySQL / MariaDB: persistent relational cache
+cache_manager.register("mysql", MySQLCache(host="localhost", db="myapp", user="root", password="secret"))
+# — or via DSN —
+cache_manager.register("mysql", MySQLCache(dsn="mysql://root:secret@localhost:3306/myapp"))
+
+
+# Semantic: vector embeddings to match by meaning, not string equality
+# Reduces LLM calls up to 90%
 embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
 cache_manager.register("semantic", SemanticCache(embedder=embedder, threshold=0.92))
 ```
@@ -222,9 +202,9 @@ async def get_market_data(ticker: str) -> dict:
     return await api.fetch(ticker)
 ```
 
-### 3. 아키텍처 및 보안 (v0.2.0)
+### 3. 아키텍처 및 보안 (v1.0.0)
 
-ToolOps v0.2.0은 엔터프라이즈급 아키텍처를 도입했습니다:
+ToolOps v1.0.0은 엔터프라이즈급 아키텍처를 도입했습니다:
 
 - **미들웨어 파이프라인**: 모놀리식 데코레이터가 구성 가능한 파이프라인(`Logging`, `Cache`, `CircuitBreaker`, `Retry`, `Coalescing`, `Fallback`)으로 리팩터링되었습니다.
 - **SHA-256 캐시 키 해싱**: 모든 캐시 키는 엄격하게 해시 처리됩니다. 캐시 저장소에는 민감한 데이터(토큰, 개인정보 등)가 노출되지 않습니다.
@@ -238,17 +218,15 @@ ToolOps는 모든 도구 호출을 자동으로 계측합니다.
 
 ### OpenTelemetry (OTEL) & Prometheus
 
-**요구 사항:** `pip install "toolops[otel]"`
-
 ```python
-from toolops.observability import configure_otel, configure_prometheus
+from toolops import configure_opentelemetry, prometheus_metrics
 
-# OTEL 호환 백엔드(Jaeger, Datadog, Honeycomb 등) 지정
-configure_otel(service_name="my-agent", exporter_endpoint="http://localhost:4317")
+# 1. Configure OpenTelemetry tracing (accepts any standard tracer instance)
+configure_opentelemetry(tracer)
 
 
-# Prometheus 메트릭 노출
-configure_prometheus(port=8000)
+# 2. Expose Prometheus metrics (returns a raw Prometheus text string)
+metrics_string = prometheus_metrics()
 ```
 
 노출되는 주요 메트릭에는 `toolops_cache_hits_total`, `toolops_tool_latency_seconds`, `toolops_circuit_opens_total`이 포함됩니다.
@@ -315,9 +293,9 @@ toolops clear memory --app my_app:setup_toolops
 
 ToolOps는 커뮤니티에 의해, 커뮤니티를 위해 구축되었습니다.
 
-- 시작하려면 [기여 가이드](CONTRIBUTING.md)를 검토하세요.
-- [행동 강령](CODE_OF_CONDUCT.md)을 확인하세요.
-- [보안 정책](SECURITY.md)을 통해 보안 문제를 안전하게 보고하세요.
+- 시작하려면 [기여 가이드](../CONTRIBUTING.md)를 검토하세요.
+- [행동 강령](../CODE_OF_CONDUCT.md)을 확인하세요.
+- [보안 정책](../SECURITY.md)을 통해 보안 문제를 안전하게 보고하세요.
 
 ---
 

@@ -18,12 +18,12 @@
 [![टेस्ट](https://img.shields.io/badge/tests-passing-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops/actions)
 [![कवरेज](https://img.shields.io/badge/coverage-100%25-success.svg?style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 [![PyPI डाउनलोड्स](https://img.shields.io/pypi/dm/toolops.svg?color=2C7BB6&style=for-the-badge)](https://pypi.org/project/toolops/)
-[![लाइसेंस](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](LICENSE)
+[![लाइसेंस](https://img.shields.io/badge/license-Apache%202.0-2C7BB6.svg?style=for-the-badge)](../LICENSE)
 [![GitHub स्टार्स](https://img.shields.io/github/stars/hedimanai-pro/toolops.svg?color=D4A017&style=for-the-badge)](https://github.com/hedimanai-pro/toolops)
 
 **प्रोडक्शन के लिए तैयार (production-ready) एआई एजेंट बनाएं। इंफ्रास्ट्रक्चर का बॉयलरप्लेट (boilerplate) कोड लिखना बंद करें।**
 
-[वेबसाइट](https://hedimanai.vercel.app/) · [दस्तावेज़](https://hedimanai.vercel.app/projects/toolops.html) · [त्वरित शुरुआत (Quickstart)](#🚀-त्वरित-शुरुआत-quickstart) · [चेंजलॉग](CHANGELOG.md)
+[वेबसाइट](https://hedimanai.vercel.app/) · [दस्तावेज़](https://hedimanai.vercel.app/projects/toolops.html) · [त्वरित शुरुआत (Quickstart)](#🚀-त्वरित-शुरुआत-quickstart) · [चेंजलॉग](../CHANGELOG.md)
 
 </div>
 
@@ -56,11 +56,11 @@ async def ask_llm(query: str) -> str:
 
 हर एजेंट डेवलपर डेमो (demo) से प्रोडक्शन (production) में जाते समय एक दीवार से टकराता है। यहां बताया गया है कि ToolOps मानक विकल्पों की तुलना में कैसा प्रदर्शन करता है:
 
-| विशेषता | मानक `@lru_cache` | फ्रेमवर्क-नेटिव | 🚀 ToolOps v0.2.0 |
+| विशेषता | मानक `@lru_cache` | फ्रेमवर्क-नेटिव | 🚀 ToolOps v1.0.0 |
 | :--- | :---: | :---: | :---: |
 | **नेटिव Async / `await` सपोर्ट** | ❌ | ✅ | ✅ नेटिव |
 | **सिमेंटिक (अर्थ-आधारित) कैश** | ❌ | ⚠️ बेसिक | ✅ एडवांस्ड एम्बेडिंग |
-| **डिस्ट्रिब्यूटेड / पर्सिस्टेंट कैश** | ❌ | ⚠️ भिन्न होता है | ✅ Postgres, फ़ाइल |
+| **डिस्ट्रिब्यूटेड / पर्सिस्टेंट कैश** | ❌ | ⚠️ भिन्न होता है | ✅ Postgres, SQLite, MySQL, Valkey/Redis |
 | **सर्किट ब्रेकर (Circuit Breaker)** | ❌ | ❌ | ✅ नेटिव |
 | **बैकऑफ़ (Backoff) के साथ ऑटोमैटिक रीट्राई** | ❌ | ⚠️ प्लगइन आवश्यक | ✅ नेटिव |
 | **रिक्वेस्ट कोलिसिंग (Anti-Thundering Herd)**| ❌ | ❌ | ✅ नेटिव |
@@ -71,61 +71,13 @@ async def ask_llm(query: str) -> str:
 
 ---
 
-## 📦 स्थापना (Installation)
+## 📦 स्थापना
 
-ToolOps एक मॉड्यूलर इंस्टॉलेशन सिस्टम का उपयोग करता है। कोर पैकेज में **शून्य बाहरी निर्भरताएँ (zero external dependencies)** हैं। आप केवल वही इंस्टॉल करते हैं जिसकी आपको आवश्यकता है।
+ToolOps डिफ़ॉल्ट रूप से सभी सुविधाओं के साथ आता है। इसे इंस्टॉल करने पर सभी कैश बैकेंड (Memory, File, SQLite, Valkey, Redis, MySQL/MariaDB, Postgres, और Semantic), लचीलापन विशेषताएं और OpenTelemetry/Prometheus ऑब्जर्वैबिलिटी टूल डिफ़ॉल्ट रूप से इंस्टॉल हो जाते हैं।
 
-### त्वरित संदर्भ
-
-| स्थापना कमांड | आपको क्या मिलता है | कब उपयोग करें |
-| :--- | :--- | :--- |
-| `pip install "toolops[all]"` | पूर्ण फीचर सेट | **प्रोडक्शन के लिए अनुशंसित** |
-| `pip install toolops` | केवल कोर SDK | शुरुआत करने के लिए, अतिरिक्त चीज़ों की आवश्यकता नहीं है |
-
-### 💻 ओएस-विशिष्ट (OS-Specific) गाइड
-
-हम आपके प्रोजेक्ट को वर्चुअल एनवायरनमेंट (virtual environment) में अलग रखने की पुरज़ोर सलाह देते हैं।
-
-#### 🐧 Linux & 🍎 macOS
 ```bash
-# 1. वर्चुअल एनवायरनमेंट बनाएं और सक्रिय करें
-python -m venv .venv
-source .venv/bin/activate
-
-# 2. ToolOps इंस्टॉल करें (bash/zsh के लिए उद्धरण/quotes आवश्यक हैं)
-pip install "toolops[all]"
-
-# 3. इंस्टॉलेशन की जांच करें
-toolops doctor
+pip install toolops
 ```
-
-#### 🪟 Windows (PowerShell)
-```powershell
-# 1. वर्चुअल एनवायरनमेंट बनाएं और सक्रिय करें
-python -m venv .venv
-.venv\Scripts\Activate.ps1
-
-# 2. ToolOps इंस्टॉल करें
-pip install "toolops[all]"
-
-# 3. इंस्टॉलेशन की जांच करें
-toolops doctor
-```
-
-#### 🪟 Windows (Command Prompt)
-```cmd
-:: 1. वर्चुअल एनवायरनमेंट बनाएं और सक्रिय करें
-python -m venv .venv
-.venv\Scripts\activate.bat
-
-:: 2. ToolOps इंस्टॉल करें (दोहरे उद्धरण चिह्न का उपयोग करें)
-pip install "toolops[all]"
-
-:: 3. इंस्टॉलेशन की जांच करें
-toolops doctor
-```
-
----
 
 ## 🚀 त्वरित शुरुआत (Quickstart)
 
@@ -183,20 +135,48 @@ asyncio.run(main())
 
 ```python
 from toolops import cache_manager
-from toolops.cache import MemoryCache, PostgresCache, FileCache, SemanticCache
+from toolops.cache import (
+    MemoryCache,
+    FileCache,
+    PostgresCache,
+    SQLiteCache,
+    ValkeyCache,
+    RedisCache,
+    MySQLCache,
+    SemanticCache,
+    SentenceTransformerEmbedder,
+)
 
 
-# इन-मेमोरी: सबसे तेज़, रीस्टार्ट होने पर साफ़ हो जाता है, कोई निर्भरता (dependencies) नहीं
+# In-memory: fastest, cleared on restart, no extra dependencies
 cache_manager.register("memory", MemoryCache(), is_default=True)
 
 
-# Postgres: रीस्टार्ट होने के बाद भी पर्सिस्टेंट (स्थायी), प्रक्रियाओं के बीच साझा करने योग्य
+# File: zero-dependency persistent cache, ideal for single-process apps
+cache_manager.register("file", FileCache("/tmp/toolops-cache"))
+
+
+# SQLite: lightweight persistent cache, single-file, no server required
+cache_manager.register("sqlite", SQLiteCache("toolops_cache.db"))
+
+
+# Postgres: persistent across restarts, shareable across processes
 cache_manager.register("db", PostgresCache("postgresql://user:pass@localhost:5432/mydb"))
 
 
-# सिमेंटिक: सटीक स्ट्रिंग समानता के बजाय अर्थ के आधार पर मिलान करने के लिए वेक्टर एम्बेडिंग
-# LLM कॉल को 90% तक कम करता है
-from toolops.cache import SentenceTransformerEmbedder
+# Valkey / Redis: distributed in-memory cache with async pooling
+cache_manager.register("valkey", ValkeyCache(host="localhost", port=6379))
+cache_manager.register("redis", RedisCache(url="redis://localhost:6379/0"))
+
+
+# MySQL / MariaDB: persistent relational cache
+cache_manager.register("mysql", MySQLCache(host="localhost", db="myapp", user="root", password="secret"))
+# — or via DSN —
+cache_manager.register("mysql", MySQLCache(dsn="mysql://root:secret@localhost:3306/myapp"))
+
+
+# Semantic: vector embeddings to match by meaning, not string equality
+# Reduces LLM calls up to 90%
 embedder = SentenceTransformerEmbedder("all-MiniLM-L6-v2")
 cache_manager.register("semantic", SemanticCache(embedder=embedder, threshold=0.92))
 ```
@@ -222,9 +202,9 @@ async def get_market_data(ticker: str) -> dict:
     return await api.fetch(ticker)
 ```
 
-### 3. आर्किटेक्चर और सुरक्षा (v0.2.0)
+### 3. आर्किटेक्चर और सुरक्षा (v1.0.0)
 
-ToolOps v0.2.0 एक एंटरप्राइज़-ग्रेड आर्किटेक्चर पेश करता है:
+ToolOps v1.0.0 एक एंटरप्राइज़-ग्रेड आर्किटेक्चर पेश करता है:
 
 - **मिडलवेयर पाइपलाइन**: मोनोलिथिक डेकोरेटर को एक कंपोज़ेबल पाइपलाइन (`लॉगिंग`, `कैश`, `सर्किटब्रेकर`, `रीट्राई`, `कोलिसिंग`, `फॉलबैक`) में रिफ़ैक्टर किया गया है।
 - **SHA-256 कैश की (Key) हैशिंग**: सभी कैश कुंजियों (keys) को सख्ती से हैश किया जाता है। कैश स्टोर में कोई भी संवेदनशील डेटा (टोकन, PII) उजागर नहीं होता है।
@@ -238,17 +218,15 @@ ToolOps स्वचालित रूप से प्रत्येक ट�
 
 ### OpenTelemetry (OTEL) और Prometheus
 
-**आवश्यकताएँ:** `pip install "toolops[otel]"`
-
 ```python
-from toolops.observability import configure_otel, configure_prometheus
+from toolops import configure_opentelemetry, prometheus_metrics
 
-# किसी भी OTEL-संगत (compatible) बैकएंड (Jaeger, Datadog, Honeycomb, आदि) को पॉइंट करें
-configure_otel(service_name="my-agent", exporter_endpoint="http://localhost:4317")
+# 1. Configure OpenTelemetry tracing (accepts any standard tracer instance)
+configure_opentelemetry(tracer)
 
 
-# Prometheus मेट्रिक्स एक्सपोज़ करें
-configure_prometheus(port=8000)
+# 2. Expose Prometheus metrics (returns a raw Prometheus text string)
+metrics_string = prometheus_metrics()
 ```
 
 एक्सपोज़ की गई प्रमुख मेट्रिक्स (metrics) में `toolops_cache_hits_total`, `toolops_tool_latency_seconds`, और `toolops_circuit_opens_total` शामिल हैं।
@@ -315,9 +293,9 @@ toolops clear memory --app my_app:setup_toolops
 
 ToolOps समुदाय (community) के लिए, समुदाय द्वारा बनाया गया है।
 
-- आरंभ करने के लिए हमारी [योगदान मार्गदर्शिका](CONTRIBUTING.md) की समीक्षा करें।
-- [आचार संहिता (Code of Conduct)](CODE_OF_CONDUCT.md) देखें।
-- हमारी [सुरक्षा नीति (Security Policy)](SECURITY.md) के माध्यम से सुरक्षा मुद्दों (security issues) की सुरक्षित रूप से रिपोर्ट करें।
+- आरंभ करने के लिए हमारी [योगदान मार्गदर्शिका](../CONTRIBUTING.md) की समीक्षा करें।
+- [आचार संहिता (Code of Conduct)](../CODE_OF_CONDUCT.md) देखें।
+- हमारी [सुरक्षा नीति (Security Policy)](../SECURITY.md) के माध्यम से सुरक्षा मुद्दों (security issues) की सुरक्षित रूप से रिपोर्ट करें।
 
 ---
 
