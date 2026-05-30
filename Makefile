@@ -6,7 +6,7 @@
 # Description: Standardized development tasks for ToolOps.
 #              All commands use the project's configured tools.
 #
-# Last_updated: 2026-05-16
+# Last_updated: 2026-05-30
 #
 # Updated_by: Hedi Manai
 # Github: https://github.com/hedimanai-pro
@@ -24,8 +24,8 @@ help:
 	@echo "ToolOps Development Commands"
 	@echo "============================"
 	@echo ""
-	@echo "  make install      Install the package with all extras"
-	@echo "  make install-dev  Install with development dependencies"
+	@echo "  make install      Install the package locally"
+	@echo "  make install-dev  Install local package and development tools"
 	@echo "  make test         Run the full test suite with coverage"
 	@echo "  make lint         Run Ruff and Black checks"
 	@echo "  make format       Auto-format code with Black"
@@ -38,10 +38,10 @@ help:
 
 # Installation targets
 install:
-	$(PIP) install -e ".[all]"
+	$(PIP) install -e .
 
 install-dev:
-	$(PIP) install -e ".[all,dev]"
+	$(PIP) install -r requirements.txt
 
 # Test target — runs pytest with coverage, enforces 80% minimum
 test:

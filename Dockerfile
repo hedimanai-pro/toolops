@@ -2,7 +2,7 @@
 #
 # Description: Development environment for ToolOps with PostgreSQL support.
 #
-# Last_updated: 2026-05-16
+# Last_updated: 2026-05-30
 #
 # Updated_by: Hedi Manai
 # Github: https://github.com/hedimanai-pro
@@ -27,16 +27,19 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set working directory
 WORKDIR /workspace
 
-# Copy dependency definitions first (for layer caching)
+# Copy dependency definitions first
 COPY pyproject.toml ./
 COPY README.md ./
 COPY CHANGELOG.md ./
+COPY requirements.txt ./
 
-# Install the package in development mode
-RUN pip install --no-cache-dir -e ".[all,dev]"
-
-# Copy the rest of the source code
+# Copy package source before editable installation
 COPY toolops/ ./toolops/
+
+# Install ToolOps with its default dependencies and development tools
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the rest of the development files
 COPY tests/ ./tests/
 COPY Makefile ./
 

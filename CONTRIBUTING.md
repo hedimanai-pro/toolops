@@ -46,10 +46,10 @@ source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 ### 3. Install in development mode
 
 ```bash
-pip install -e ".[all,dev]"
+pip install -r requirements.txt
 ```
 
-This installs ToolOps with all optional dependencies plus development tools (pytest, black, ruff, mypy).
+This installs ToolOps in editable mode with development tools (pytest, pytest-cov, black, ruff, mypy) alongside its default-installed caching, database, and telemetry drivers.
 
 ### 4. Verify your setup
 
@@ -81,7 +81,7 @@ toolops/
 ├── toolops/                    # Core package
 │   ├── __init__.py            # Public API exports
 │   ├── decorators.py          # @tool, @readonly, @sideeffect, @stateful
-│   ├── cache.py               # Cache backends (Memory, Postgres, File, Semantic)
+│   ├── cache/                 # Cache backend package (base, memory, file, postgres, sqlite, valkey, mysql, semantic)
 │   ├── resilience.py          # Circuit breaker implementation
 │   ├── coalescer.py           # Request coalescing
 │   ├── logger.py              # Structured JSON logging

@@ -147,7 +147,7 @@ pip install --upgrade toolops
 The development workflow now uses `make` targets. Update your local setup:
 
 ```bash
-pip install -e ".[all,dev]"
+pip install -r requirements.txt
 make test   # Instead of: pytest tests/
 make lint   # Instead of: ruff check .
 ```
