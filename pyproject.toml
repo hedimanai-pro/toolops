@@ -3,7 +3,7 @@
 # Description: ToolOps package configuration — PEP 621 compliant.
 #              Unified build system. setup.py removed in v0.2.0.
 #
-# Last_updated: 2026-05-16
+# Last_updated: 2026-05-30
 #
 # Updated_by: Hedi Manai
 # Github: https://github.com/hedimanai-pro
@@ -17,7 +17,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "toolops"
-version = "0.2.0"
+version = "1.0.0"
 description = "The Industrial-Grade Resilience & Efficiency Layer for AI Agent Tools"
 readme = "README.md"
 license = {text = "Apache-2.0"}
@@ -26,12 +26,13 @@ authors = [
     {name = "Hedi Manai", email = "hedi.manai.pro@gmail.com"},
 ]
 keywords = [
-    "ai", "agents", "cache", "resilience", "circuit-breaker",
-    "retry", "observability", "middleware", "llm", "tools",
-    "langchain", "crewai", "mcp", "semantic-cache",
+    "ai", "agents", "agentic", "cache", "resilience", "circuit-breaker",
+    "retry", "observability", "middleware", "llm", "tools", "tool", "langgraph", "llamaindex",
+    "langchain", "crewai", "mcp", "semantic-cache", "valkey", "redis", "ollama", 
+    "sqlite", "postgres", "opentelemetry", "prometheus", "ai-infrastructure",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
@@ -44,21 +45,28 @@ classifiers = [
     "Typing :: Typed",
 ]
 
-dependencies = []
-
-[project.optional-dependencies]
-postgres = ["asyncpg>=0.27.0"]
-semantic = ["sentence-transformers>=2.2.0", "numpy>=1.24.0"]
-openai = ["openai>=1.0.0"]
-otel = ["opentelemetry-api>=1.24.0", "prometheus-client>=0.17.0"]
-all = [
+dependencies = [
     "asyncpg>=0.27.0",
     "sentence-transformers>=2.2.0",
     "numpy>=1.24.0",
     "openai>=1.0.0",
     "opentelemetry-api>=1.24.0",
     "prometheus-client>=0.17.0",
+    "aiosqlite>=0.19.0",
+    "redis[hiredis]>=5.0.0",
+    "aiomysql>=0.2.0",
 ]
+
+[project.optional-dependencies]
+postgres = []
+semantic = []
+openai = []
+otel = []
+sqlite = []
+valkey = []
+redis = []
+mysql = []
+all = []
 dev = [
     "pytest>=7.4.0",
     "pytest-asyncio>=0.21.0",
@@ -113,7 +121,7 @@ strict = true
 warn_return_any = true
 warn_unused_ignores = true
 show_error_codes = true
-follow_imports = "silent"
+follow_imports = "skip"
 
 [[tool.mypy.overrides]]
 module = [
@@ -126,6 +134,9 @@ module = [
     "crewai.*",
     "langchain.*",
     "langchain_core.*",
+    "aiosqlite.*",
+    "redis.*",
+    "aiomysql.*",
 ]
 ignore_missing_imports = true
 

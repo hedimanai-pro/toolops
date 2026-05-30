@@ -77,6 +77,10 @@ def _dependency_status() -> dict[str, bool]:
         "postgres": "asyncpg",
         "semantic": "sentence_transformers",
         "openai": "openai",
+        "sqlite": "aiosqlite",
+        "valkey": "redis",
+        "redis": "redis",
+        "mysql": "aiomysql",
     }
     status: dict[str, bool] = {}
 

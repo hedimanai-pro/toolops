@@ -3,7 +3,7 @@ Name: __init__.py
 
 Description: ToolOps public API exports.
 
-Last_updated: 2026-05-16
+Last_updated: 2026-05-30
 
 Updated_by: Hedi Manai
 Github: https://github.com/hedimanai-pro
@@ -23,7 +23,7 @@ from toolops.decorators import (
     tool,
 )
 
-# v0.2.0 — middleware pipeline (new public API)
+# v1.0.0 — middleware pipeline
 from toolops.middlewares import (
     DEFAULT_PIPELINE,
     CacheMiddleware,
@@ -37,7 +37,9 @@ from toolops.middlewares import (
     ToolExecutor,
     build_executor,
 )
-from toolops.observability import prometheus_metrics
+from toolops.observability import configure_opentelemetry, prometheus_metrics
+
+__version__ = "1.0.0"
 
 __all__ = [
     # Decorators
@@ -49,7 +51,9 @@ __all__ = [
     # Core components
     "cache_manager",
     "prometheus_metrics",
-    # Middleware pipeline (v0.2.0)
+    "configure_opentelemetry",
+    "__version__",
+    # Middleware pipeline (v1.0.0)
     "ToolContext",
     "ToolExecutor",
     "Middleware",
